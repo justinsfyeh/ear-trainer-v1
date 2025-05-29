@@ -377,9 +377,12 @@ function loadBestStreak() {
 }
 
 function showStatsTable() {
+  console.log('showStatsTable called'); // Debug log
   const modal = document.getElementById('statsModal');
   const tableBody = document.getElementById('statsTableBody');
   const stats = JSON.parse(localStorage.getItem("detailedNoteStats") || "{}");
+  
+  console.log('Stats data:', stats); // Debug log
   
   // Clear existing table
   tableBody.innerHTML = '';
@@ -400,6 +403,8 @@ function showStatsTable() {
     };
   });
   
+  console.log('Processed note data:', noteData); // Debug log
+  
   // Find best performing note
   const bestNote = noteData.reduce((best, current) => 
     current.accuracy > best.accuracy ? current : best, noteData[0]);
@@ -408,7 +413,8 @@ function showStatsTable() {
   noteData.sort((a, b) => b.accuracy - a.accuracy);
   
   // Populate table with enhanced visuals
-  noteData.forEach(data => {
+  noteData.forEach((data, index) => {
+    console.log(`Creating row ${index} for note ${data.note}`); // Debug log
     const row = tableBody.insertRow();
     
     // Note name with black key formatting
@@ -442,15 +448,22 @@ function showStatsTable() {
     const accuracyCell = row.insertCell(4);
     const isBestNote = data.note === bestNote.note && data.accuracy > 0;
     
-    // Create colored progress bar
-    const progressBar = document.createElement('div');
-    progressBar.className = 'accuracy-bar-container';
-    progressBar.innerHTML = `
-      <div class="accuracy-bar" style="width: ${data.accuracy}%; background-color: ${getAccuracyColor(data.accuracy)}"></div>
-      <span class="accuracy-text">${data.accuracy}% ${isBestNote ? '🥇' : ''}</span>
-    `;
+    // Create colored progress bar with improved DOM structure
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'accuracy-bar-container';
     
-    accuracyCell.appendChild(progressBar);
+    const progressBar = document.createElement('div');
+    progressBar.className = 'accuracy-bar';
+    progressBar.style.width = data.accuracy + '%';
+    progressBar.style.backgroundColor = getAccuracyColor(data.accuracy);
+    
+    const progressText = document.createElement('span');
+    progressText.className = 'accuracy-text';
+    progressText.textContent = data.accuracy + '%' + (isBestNote ? ' 🥇' : '');
+    
+    progressContainer.appendChild(progressBar);
+    progressContainer.appendChild(progressText);
+    accuracyCell.appendChild(progressContainer);
     
     // Apply background color gradient to the cell
     accuracyCell.style.backgroundColor = getAccuracyBackgroundColor(data.accuracy);
@@ -459,8 +472,11 @@ function showStatsTable() {
     if (data.accuracy === 100 && data.timesHeard >= 3) {
       noteCell.innerHTML += ' 🔥';
     }
+    
+    console.log(`Row ${index} created successfully`); // Debug log
   });
   
+  console.log('Table populated, showing modal'); // Debug log
   modal.style.display = 'block';
 }
 
@@ -563,15 +579,24 @@ function sortStatsTable(column) {
     const accuracyCell = row.insertCell(4);
     const isBestNote = data.note === bestNote.note && data.accuracy > 0;
     
-    // Create colored progress bar
-    const progressBar = document.createElement('div');
-    progressBar.className = 'accuracy-bar-container';
-    progressBar.innerHTML = `
-      <div class="accuracy-bar" style="width: ${data.accuracy}%; background-color: ${getAccuracyColor(data.accuracy)}"></div>
-      <span class="accuracy-text">${data.accuracy}% ${isBestNote ? '🥇' : ''}</span>
-    `;
+    // Create colored progress bar with improved DOM structure
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'accuracy-bar-container';
     
-    accuracyCell.appendChild(progressBar);
+    const progressBar = document.createElement('div');
+    progressBar.className = 'accuracy-bar';
+    progressBar.style.width = data.accuracy + '%';
+    progressBar.style.backgroundColor = getAccuracyColor(data.accuracy);
+    
+    const progressText = document.createElement('span');
+    progressText.className = 'accuracy-text';
+    progressText.textContent = data.accuracy + '%' + (isBestNote ? ' 🥇' : '');
+    
+    progressContainer.appendChild(progressBar);
+    progressContainer.appendChild(progressText);
+    accuracyCell.appendChild(progressContainer);
+    
+    // Apply background color gradient to the cell
     accuracyCell.style.backgroundColor = getAccuracyBackgroundColor(data.accuracy);
     
     // Add streak indicator for perfect notes
@@ -697,6 +722,16 @@ document.addEventListener('DOMContentLoaded', function() {
   
   logMessage('Click "Start Audio" first, then "New Note" to begin!');
   updateStatsDisplay();
+  
+  // Make functions globally accessible for Chrome compatibility
+  window.toggleStatsView = toggleStatsView;
+  window.showChart = showChart;
+  window.sortStatsTable = sortStatsTable;
+  window.downloadStatsLog = downloadStatsLog;
+  window.resetAllStats = resetAllStats;
+  window.testPiano = testPiano;
+  
+  console.log('All functions loaded and made globally accessible');
 });
 
 // Debug function to test piano
@@ -723,9 +758,15 @@ function testPiano() {
 let currentChart = null;
 
 function toggleStatsView() {
+  console.log('toggleStatsView called'); // Debug log
   const tableView = document.getElementById('tableView');
   const chartView = document.getElementById('chartView');
   const toggleBtn = document.getElementById('viewToggle');
+  
+  if (!tableView || !chartView || !toggleBtn) {
+    console.error('Missing elements for toggleStatsView');
+    return;
+  }
   
   if (tableView.style.display === 'none') {
     // Show table, hide chart
@@ -744,13 +785,29 @@ function toggleStatsView() {
 }
 
 function showChart(type) {
+  console.log('showChart called with type:', type); // Debug log
+  
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded');
+    alert('Chart.js library failed to load. Please refresh the page.');
+    return;
+  }
+  
   const stats = JSON.parse(localStorage.getItem("detailedNoteStats") || "{}");
   const canvas = document.getElementById('statsChart');
+  
+  if (!canvas) {
+    console.error('Canvas element not found');
+    return;
+  }
+  
   const ctx = canvas.getContext('2d');
   
   // Destroy existing chart
   if (currentChart) {
     currentChart.destroy();
+    currentChart = null;
   }
   
   // Prepare data
@@ -772,16 +829,23 @@ function showChart(type) {
     };
   });
   
-  switch(type) {
-    case 'accuracy':
-      createAccuracyChart(ctx, noteData);
-      break;
-    case 'performance':
-      createPerformanceChart(ctx, noteData);
-      break;
-    case 'radar':
-      createRadarChart(ctx, noteData);
-      break;
+  try {
+    switch(type) {
+      case 'accuracy':
+        createAccuracyChart(ctx, noteData);
+        break;
+      case 'performance':
+        createPerformanceChart(ctx, noteData);
+        break;
+      case 'radar':
+        createRadarChart(ctx, noteData);
+        break;
+      default:
+        console.error('Unknown chart type:', type);
+    }
+  } catch (error) {
+    console.error('Error creating chart:', error);
+    alert('Error creating chart: ' + error.message);
   }
 }
 

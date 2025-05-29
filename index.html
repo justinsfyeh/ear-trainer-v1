@@ -7,6 +7,27 @@
   <link rel="stylesheet" href="style.css" />
   <script src="tone.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Verify Chart.js loaded
+    window.addEventListener('load', function() {
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js failed to load from CDN, trying fallback...');
+        // Try alternative CDN
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+        script.onload = function() {
+          console.log('Chart.js loaded from fallback CDN');
+        };
+        script.onerror = function() {
+          console.error('Chart.js failed to load from fallback CDN');
+          alert('Chart visualization unavailable. Table view will still work.');
+        };
+        document.head.appendChild(script);
+      } else {
+        console.log('Chart.js loaded successfully');
+      }
+    });
+  </script>
 </head>
 <body>
   <h1>Ear Trainer v1.0</h1>
