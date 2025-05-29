@@ -15,11 +15,42 @@
     <button id="replayC">Replay C</button>
     <button id="replayTest">Replay Test</button>
     <button id="newNote">New Note</button>
+    <button id="skipNote">Skip Note</button>
+    <button id="showTable">Show Stats Table</button>
+  </div>
+
+  <div id="stats">
+    <h3>Your Progress</h3>
+    <div class="stat-item">Correct First Try: <span id="correctFirst">0</span></div>
+    <div class="stat-item">Wrong/Skipped: <span id="wrongSkipped">0</span></div>
+    <div class="stat-item">Accuracy: <span id="accuracy">0%</span></div>
+    <div class="stat-item">Total Notes: <span id="totalNotes">0</span></div>
   </div>
 
   <div id="keyboard"></div>
 
   <div id="log"></div>
+
+  <!-- Modal for detailed stats -->
+  <div id="statsModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Detailed Note Statistics</h2>
+      <table id="statsTable">
+        <thead>
+          <tr>
+            <th>Note</th>
+            <th>Times Heard</th>
+            <th>Correct First Try</th>
+            <th>Missed/Skipped</th>
+            <th>Accuracy</th>
+          </tr>
+        </thead>
+        <tbody id="statsTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

@@ -31,7 +31,9 @@ No installation required! Just open `index.html` in any modern web browser.
 
 ## Live Demo
 
-[View Live Demo](https://yourusername.github.io/ear-trainer-v1)
+🎵 **[Try the Ear Trainer Live!](https:/justinsfyeh/.github.io/ear-trainer-v1)** 🎵
+
+
 
 ## License
 
