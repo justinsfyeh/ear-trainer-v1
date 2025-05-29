@@ -18,6 +18,7 @@
     <button id="skipNote">Skip Note</button>
     <button id="showTable">Show Stats Table</button>
     <button id="downloadStats" onclick="downloadStatsLog()">Download Stats</button>
+    <button id="resetStats" onclick="resetAllStats()" style="background: #ffcccc;">Reset Stats</button>
   </div>
 
   <div id="stats">
@@ -30,6 +31,7 @@
     <div class="stat-item streak">Best Streak: <span id="bestStreak">0</span></div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Shortcuts: Space=Play/New, S=Skip, D=Download Stats
+      <br>Stats persist across browser sessions - use Reset button to clear
     </div>
   </div>
 

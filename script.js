@@ -34,19 +34,36 @@ async function initializeAudio() {
       // Create a piano-like synth
       piano = new Tone.PolySynth(Tone.Synth, {
         oscillator: {
-          type: "triangle"
+          type: "fatsawtooth",
+          count: 3,
+          spread: 30
         },
         envelope: {
-          attack: 0.02,
-          decay: 0.1,
-          sustain: 0.3,
-          release: 1
+          attack: 0.01,
+          decay: 0.2,
+          sustain: 0.2,
+          release: 1.5
+        },
+        filter: {
+          type: "lowpass",
+          frequency: 3000,
+          rolloff: -12
         }
       }).toDestination();
       
-      // Add some reverb for a more realistic piano sound
-      const reverb = new Tone.Reverb(1.5).toDestination();
-      piano.connect(reverb);
+      // Add some reverb and EQ for a more realistic piano sound
+      const reverb = new Tone.Reverb({
+        decay: 2.5,
+        wet: 0.3
+      }).toDestination();
+      
+      const eq = new Tone.EQ3({
+        low: -2,
+        mid: 1,
+        high: -1
+      }).connect(reverb);
+      
+      piano.connect(eq);
       
       audioInitialized = true;
       console.log('Audio context started successfully');
@@ -344,6 +361,31 @@ function downloadStatsLog() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Function to reset all statistics
+function resetAllStats() {
+  if (confirm('Are you sure you want to reset ALL statistics? This cannot be undone!')) {
+    // Clear all localStorage data
+    localStorage.removeItem('detailedNoteStats');
+    localStorage.removeItem('statsLogs');
+    localStorage.removeItem('bestStreak');
+    
+    // Reset session stats
+    sessionStats = {
+      correctFirst: 0,
+      wrongSkipped: 0,
+      totalNotes: 0,
+      currentStreak: 0,
+      bestStreak: 0
+    };
+    
+    // Update display
+    updateStatsDisplay();
+    logMessage('All statistics have been reset!');
+    
+    console.log('All stats reset');
+  }
 }
 
 function logMessage(msg) {
