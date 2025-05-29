@@ -6,6 +6,7 @@
   <title>Ear Trainer v1.0</title>
   <link rel="stylesheet" href="style.css" />
   <script src="tone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <h1>Ear Trainer v1.0</h1>
@@ -44,20 +45,61 @@
   <div id="statsModal" class="modal">
     <div class="modal-content">
       <span class="close">&times;</span>
-      <h2>Detailed Note Statistics</h2>
-      <table id="statsTable">
-        <thead>
-          <tr>
-            <th>Note</th>
-            <th>Times Heard</th>
-            <th>Correct First Try</th>
-            <th>Missed/Skipped</th>
-            <th>Accuracy</th>
-          </tr>
-        </thead>
-        <tbody id="statsTableBody">
-        </tbody>
-      </table>
+      <h2>📊 Detailed Note Statistics</h2>
+      
+      <!-- Sorting controls -->
+      <div class="sort-controls">
+        <span>Sort by:</span>
+        <button onclick="sortStatsTable('accuracy')" class="sort-btn">🎯 Best Accuracy</button>
+        <button onclick="sortStatsTable('timesHeard')" class="sort-btn">🎵 Most Played</button>
+        <button onclick="sortStatsTable('worst')" class="sort-btn">⚠️ Needs Practice</button>
+        <button onclick="sortStatsTable('note')" class="sort-btn">🎹 Note Order</button>
+        <button onclick="toggleStatsView()" class="sort-btn" id="viewToggle">📊 Show Charts</button>
+      </div>
+      
+      <!-- Table View -->
+      <div id="tableView">
+        <table id="statsTable">
+          <thead>
+            <tr>
+              <th>Note</th>
+              <th>Times Heard</th>
+              <th>Correct First Try</th>
+              <th>Missed/Skipped</th>
+              <th>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody id="statsTableBody">
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Chart View -->
+      <div id="chartView" style="display: none;">
+        <div class="chart-controls">
+          <button onclick="showChart('accuracy')" class="chart-btn">📈 Accuracy Chart</button>
+          <button onclick="showChart('performance')" class="chart-btn">📊 Performance Chart</button>
+          <button onclick="showChart('radar')" class="chart-btn">🎯 Radar Chart</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="statsChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+      
+      <!-- Legend -->
+      <div class="stats-legend">
+        <h4>Legend:</h4>
+        <div class="legend-item">🥇 Best performing note</div>
+        <div class="legend-item">🔥 Perfect streak (100% accuracy, 3+ attempts)</div>
+        <div class="legend-item">✅ Correct answers | ❌ Wrong answers</div>
+        <div class="legend-item">🎵 Played notes | ⚪ Unplayed notes</div>
+        <div class="legend-item">
+          <span class="color-sample" style="background: #4CAF50;"></span> 80%+ accuracy
+          <span class="color-sample" style="background: #FFC107;"></span> 60-79% accuracy
+          <span class="color-sample" style="background: #FF9800;"></span> 40-59% accuracy
+          <span class="color-sample" style="background: #F44336;"></span> &lt;40% accuracy
+        </div>
+      </div>
     </div>
   </div>
 

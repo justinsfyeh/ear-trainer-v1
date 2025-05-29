@@ -384,22 +384,201 @@ function showStatsTable() {
   // Clear existing table
   tableBody.innerHTML = '';
   
-  // Populate table
-  notes.forEach(note => {
+  // Prepare data for sorting and analysis
+  const noteData = notes.map(note => {
     const noteStats = stats[note] || { timesHeard: 0, correctFirst: 0, missed: 0 };
     const accuracy = noteStats.timesHeard > 0 
       ? Math.round((noteStats.correctFirst / noteStats.timesHeard) * 100)
       : 0;
     
+    return {
+      note: note,
+      timesHeard: noteStats.timesHeard,
+      correctFirst: noteStats.correctFirst,
+      missed: noteStats.missed,
+      accuracy: accuracy
+    };
+  });
+  
+  // Find best performing note
+  const bestNote = noteData.reduce((best, current) => 
+    current.accuracy > best.accuracy ? current : best, noteData[0]);
+  
+  // Sort by accuracy (descending) by default
+  noteData.sort((a, b) => b.accuracy - a.accuracy);
+  
+  // Populate table with enhanced visuals
+  noteData.forEach(data => {
     const row = tableBody.insertRow();
-    row.insertCell(0).textContent = note; // Full note name with octave
-    row.insertCell(1).textContent = noteStats.timesHeard;
-    row.insertCell(2).textContent = noteStats.correctFirst;
-    row.insertCell(3).textContent = noteStats.missed;
-    row.insertCell(4).textContent = accuracy + '%';
+    
+    // Note name with black key formatting
+    const noteCell = row.insertCell(0);
+    if (blackKeys.includes(data.note)) {
+      const blackKeyLabels = {
+        'C#4': 'C#/Db',
+        'D#4': 'D#/Eb', 
+        'F#4': 'F#/Gb',
+        'G#4': 'G#/Ab',
+        'A#4': 'A#/Bb'
+      };
+      noteCell.innerHTML = `<strong>${blackKeyLabels[data.note]}</strong>`;
+    } else {
+      noteCell.textContent = data.note.slice(0, -1); // Remove octave for white keys
+    }
+    
+    // Times heard with icon
+    const timesHeardCell = row.insertCell(1);
+    timesHeardCell.innerHTML = `${data.timesHeard > 0 ? '🎵' : '⚪'} ${data.timesHeard}`;
+    
+    // Correct first try with success icon
+    const correctCell = row.insertCell(2);
+    correctCell.innerHTML = `${data.correctFirst > 0 ? '✅' : ''} ${data.correctFirst}`;
+    
+    // Missed/skipped with failure icon
+    const missedCell = row.insertCell(3);
+    missedCell.innerHTML = `${data.missed > 0 ? '❌' : ''} ${data.missed}`;
+    
+    // Accuracy with colored bar and best note indicator
+    const accuracyCell = row.insertCell(4);
+    const isBestNote = data.note === bestNote.note && data.accuracy > 0;
+    
+    // Create colored progress bar
+    const progressBar = document.createElement('div');
+    progressBar.className = 'accuracy-bar-container';
+    progressBar.innerHTML = `
+      <div class="accuracy-bar" style="width: ${data.accuracy}%; background-color: ${getAccuracyColor(data.accuracy)}"></div>
+      <span class="accuracy-text">${data.accuracy}% ${isBestNote ? '🥇' : ''}</span>
+    `;
+    
+    accuracyCell.appendChild(progressBar);
+    
+    // Apply background color gradient to the cell
+    accuracyCell.style.backgroundColor = getAccuracyBackgroundColor(data.accuracy);
+    
+    // Add streak indicator for current best performing notes
+    if (data.accuracy === 100 && data.timesHeard >= 3) {
+      noteCell.innerHTML += ' 🔥';
+    }
   });
   
   modal.style.display = 'block';
+}
+
+// Helper function to get accuracy bar color
+function getAccuracyColor(accuracy) {
+  if (accuracy >= 80) return '#4CAF50'; // Green
+  if (accuracy >= 60) return '#FFC107'; // Yellow
+  if (accuracy >= 40) return '#FF9800'; // Orange
+  return '#F44336'; // Red
+}
+
+// Helper function to get background color gradient
+function getAccuracyBackgroundColor(accuracy) {
+  const red = Math.max(0, 255 - (accuracy * 2.55));
+  const green = Math.min(255, accuracy * 2.55);
+  return `rgba(${red}, ${green}, 0, 0.1)`;
+}
+
+// Function to sort table
+function sortStatsTable(column) {
+  const tableBody = document.getElementById('statsTableBody');
+  const stats = JSON.parse(localStorage.getItem("detailedNoteStats") || "{}");
+  
+  // Prepare data
+  const noteData = notes.map(note => {
+    const noteStats = stats[note] || { timesHeard: 0, correctFirst: 0, missed: 0 };
+    const accuracy = noteStats.timesHeard > 0 
+      ? Math.round((noteStats.correctFirst / noteStats.timesHeard) * 100)
+      : 0;
+    
+    return {
+      note: note,
+      timesHeard: noteStats.timesHeard,
+      correctFirst: noteStats.correctFirst,
+      missed: noteStats.missed,
+      accuracy: accuracy
+    };
+  });
+  
+  // Sort based on column
+  switch(column) {
+    case 'accuracy':
+      noteData.sort((a, b) => b.accuracy - a.accuracy);
+      break;
+    case 'timesHeard':
+      noteData.sort((a, b) => b.timesHeard - a.timesHeard);
+      break;
+    case 'worst':
+      noteData.sort((a, b) => {
+        // Sort by lowest accuracy, but put unplayed notes last
+        if (a.timesHeard === 0 && b.timesHeard === 0) return 0;
+        if (a.timesHeard === 0) return 1;
+        if (b.timesHeard === 0) return -1;
+        return a.accuracy - b.accuracy;
+      });
+      break;
+    case 'note':
+      noteData.sort((a, b) => notes.indexOf(a.note) - notes.indexOf(b.note));
+      break;
+  }
+  
+  // Clear and repopulate table
+  tableBody.innerHTML = '';
+  
+  // Find best performing note
+  const bestNote = noteData.reduce((best, current) => 
+    current.accuracy > best.accuracy ? current : best, noteData[0]);
+  
+  noteData.forEach(data => {
+    const row = tableBody.insertRow();
+    
+    // Note name with black key formatting
+    const noteCell = row.insertCell(0);
+    if (blackKeys.includes(data.note)) {
+      const blackKeyLabels = {
+        'C#4': 'C#/Db',
+        'D#4': 'D#/Eb', 
+        'F#4': 'F#/Gb',
+        'G#4': 'G#/Ab',
+        'A#4': 'A#/Bb'
+      };
+      noteCell.innerHTML = `<strong>${blackKeyLabels[data.note]}</strong>`;
+    } else {
+      noteCell.textContent = data.note.slice(0, -1);
+    }
+    
+    // Times heard with icon
+    const timesHeardCell = row.insertCell(1);
+    timesHeardCell.innerHTML = `${data.timesHeard > 0 ? '🎵' : '⚪'} ${data.timesHeard}`;
+    
+    // Correct first try with success icon
+    const correctCell = row.insertCell(2);
+    correctCell.innerHTML = `${data.correctFirst > 0 ? '✅' : ''} ${data.correctFirst}`;
+    
+    // Missed/skipped with failure icon
+    const missedCell = row.insertCell(3);
+    missedCell.innerHTML = `${data.missed > 0 ? '❌' : ''} ${data.missed}`;
+    
+    // Accuracy with colored bar and best note indicator
+    const accuracyCell = row.insertCell(4);
+    const isBestNote = data.note === bestNote.note && data.accuracy > 0;
+    
+    // Create colored progress bar
+    const progressBar = document.createElement('div');
+    progressBar.className = 'accuracy-bar-container';
+    progressBar.innerHTML = `
+      <div class="accuracy-bar" style="width: ${data.accuracy}%; background-color: ${getAccuracyColor(data.accuracy)}"></div>
+      <span class="accuracy-text">${data.accuracy}% ${isBestNote ? '🥇' : ''}</span>
+    `;
+    
+    accuracyCell.appendChild(progressBar);
+    accuracyCell.style.backgroundColor = getAccuracyBackgroundColor(data.accuracy);
+    
+    // Add streak indicator for perfect notes
+    if (data.accuracy === 100 && data.timesHeard >= 3) {
+      noteCell.innerHTML += ' 🔥';
+    }
+  });
 }
 
 function closeStatsModal() {
@@ -538,4 +717,228 @@ function testPiano() {
   } else {
     console.error('Piano not ready for testing');
   }
+}
+
+// Chart functionality
+let currentChart = null;
+
+function toggleStatsView() {
+  const tableView = document.getElementById('tableView');
+  const chartView = document.getElementById('chartView');
+  const toggleBtn = document.getElementById('viewToggle');
+  
+  if (tableView.style.display === 'none') {
+    // Show table, hide chart
+    tableView.style.display = 'block';
+    chartView.style.display = 'none';
+    toggleBtn.textContent = '📊 Show Charts';
+  } else {
+    // Show chart, hide table
+    tableView.style.display = 'none';
+    chartView.style.display = 'block';
+    toggleBtn.textContent = '📋 Show Table';
+    
+    // Show default accuracy chart
+    showChart('accuracy');
+  }
+}
+
+function showChart(type) {
+  const stats = JSON.parse(localStorage.getItem("detailedNoteStats") || "{}");
+  const canvas = document.getElementById('statsChart');
+  const ctx = canvas.getContext('2d');
+  
+  // Destroy existing chart
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  
+  // Prepare data
+  const noteData = notes.map(note => {
+    const noteStats = stats[note] || { timesHeard: 0, correctFirst: 0, missed: 0 };
+    const accuracy = noteStats.timesHeard > 0 
+      ? Math.round((noteStats.correctFirst / noteStats.timesHeard) * 100)
+      : 0;
+    
+    return {
+      note: note,
+      displayNote: blackKeys.includes(note) ? 
+        ({'C#4': 'C#/Db', 'D#4': 'D#/Eb', 'F#4': 'F#/Gb', 'G#4': 'G#/Ab', 'A#4': 'A#/Bb'}[note]) : 
+        note.slice(0, -1),
+      timesHeard: noteStats.timesHeard,
+      correctFirst: noteStats.correctFirst,
+      missed: noteStats.missed,
+      accuracy: accuracy
+    };
+  });
+  
+  switch(type) {
+    case 'accuracy':
+      createAccuracyChart(ctx, noteData);
+      break;
+    case 'performance':
+      createPerformanceChart(ctx, noteData);
+      break;
+    case 'radar':
+      createRadarChart(ctx, noteData);
+      break;
+  }
+}
+
+function createAccuracyChart(ctx, noteData) {
+  const labels = noteData.map(d => d.displayNote);
+  const accuracyData = noteData.map(d => d.accuracy);
+  const backgroundColors = accuracyData.map(accuracy => {
+    if (accuracy >= 80) return '#4CAF50';
+    if (accuracy >= 60) return '#FFC107';
+    if (accuracy >= 40) return '#FF9800';
+    return '#F44336';
+  });
+  
+  currentChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Accuracy %',
+        data: accuracyData,
+        backgroundColor: backgroundColors,
+        borderColor: backgroundColors.map(color => color.replace('0.8', '1')),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: '📈 Note Accuracy Performance'
+        },
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: {
+            display: true,
+            text: 'Accuracy (%)'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Notes'
+          }
+        }
+      }
+    }
+  });
+}
+
+function createPerformanceChart(ctx, noteData) {
+  const labels = noteData.map(d => d.displayNote);
+  
+  currentChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Correct First Try',
+          data: noteData.map(d => d.correctFirst),
+          backgroundColor: '#4CAF50',
+          borderColor: '#4CAF50',
+          borderWidth: 1
+        },
+        {
+          label: 'Missed/Skipped',
+          data: noteData.map(d => d.missed),
+          backgroundColor: '#F44336',
+          borderColor: '#F44336',
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: '📊 Correct vs Missed Attempts'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Number of Attempts'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Notes'
+          }
+        }
+      }
+    }
+  });
+}
+
+function createRadarChart(ctx, noteData) {
+  // Only show notes that have been played
+  const playedNotes = noteData.filter(d => d.timesHeard > 0);
+  
+  if (playedNotes.length === 0) {
+    // Show message if no data
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data available yet. Play some notes first!', ctx.canvas.width/2, ctx.canvas.height/2);
+    return;
+  }
+  
+  const labels = playedNotes.map(d => d.displayNote);
+  const accuracyData = playedNotes.map(d => d.accuracy);
+  
+  currentChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Accuracy %',
+        data: accuracyData,
+        backgroundColor: 'rgba(76, 175, 80, 0.2)',
+        borderColor: '#4CAF50',
+        borderWidth: 2,
+        pointBackgroundColor: '#4CAF50',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#4CAF50'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: '🎯 Note Familiarity Radar'
+        }
+      },
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: 100,
+          title: {
+            display: true,
+            text: 'Accuracy (%)'
+          }
+        }
+      }
+    }
+  });
 }
