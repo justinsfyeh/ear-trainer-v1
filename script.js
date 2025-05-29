@@ -32,36 +32,65 @@ async function initializeAudio() {
       logMessage('Loading piano samples...');
       await Tone.start();
       
-      // Create a realistic piano using samples
-      piano = new Tone.Sampler({
-        urls: {
-          "C4": "C4.mp3",
-          "D#4": "Ds4.mp3",
-          "F#4": "Fs4.mp3",
-          "A4": "A4.mp3",
-          "C5": "C5.mp3",
-        },
-        release: 1,
-        baseUrl: "https://tonejs.github.io/audio/salamander/",
-        onload: () => {
-          console.log('Piano samples loaded successfully');
-          logMessage('🎹 Real piano loaded! Click "New Note" to start.');
-        },
-        onerror: (error) => {
-          console.error('Error loading piano samples:', error);
-          logMessage('⚠️ Piano samples failed to load. Using fallback sound.');
-          // Create fallback synthesizer
-          piano = new Tone.PolySynth(Tone.Synth).toDestination();
-        }
-      }).toDestination();
-      
-      // Set a timeout to detect loading issues
-      setTimeout(() => {
-        if (!piano.loaded) {
-          console.warn('Piano samples taking too long to load, using fallback');
-          logMessage('⚠️ Slow connection detected. Using synthesized piano.');
-        }
-      }, 10000); // 10 second timeout
+      // Try to create piano with samples first
+      try {
+        piano = new Tone.Sampler({
+          urls: {
+            A0: "A0.mp3",
+            C1: "C1.mp3",
+            "D#1": "Ds1.mp3",
+            "F#1": "Fs1.mp3",
+            A1: "A1.mp3",
+            C2: "C2.mp3",
+            "D#2": "Ds2.mp3",
+            "F#2": "Fs2.mp3",
+            A2: "A2.mp3",
+            C3: "C3.mp3",
+            "D#3": "Ds3.mp3",
+            "F#3": "Fs3.mp3",
+            A3: "A3.mp3",
+            C4: "C4.mp3",
+            "D#4": "Ds4.mp3",
+            "F#4": "Fs4.mp3",
+            A4: "A4.mp3",
+            C5: "C5.mp3",
+            "D#5": "Ds5.mp3",
+            "F#5": "Fs5.mp3",
+            A5: "A5.mp3",
+            C6: "C6.mp3",
+            "D#6": "Ds6.mp3",
+            "F#6": "Fs6.mp3",
+            A6: "A6.mp3",
+            C7: "C7.mp3",
+            "D#7": "Ds7.mp3",
+            "F#7": "Fs7.mp3",
+            A7: "A7.mp3",
+            C8: "C8.mp3"
+          },
+          release: 1,
+          baseUrl: "https://tonejs.github.io/audio/salamander/",
+          onload: () => {
+            console.log('Piano samples loaded successfully');
+            logMessage('🎹 Real piano loaded! Click "New Note" to start.');
+          },
+          onerror: (error) => {
+            console.error('Error loading piano samples:', error);
+            createFallbackPiano();
+          }
+        }).toDestination();
+        
+        // Set a timeout to detect loading issues
+        setTimeout(() => {
+          if (piano.loaded === false) {
+            console.warn('Piano samples taking too long to load, using fallback');
+            createFallbackPiano();
+          }
+        }, 15000); // 15 second timeout
+        
+      } catch (error) {
+        console.error('Error creating sampler:', error);
+        createFallbackPiano();
+      }
       
       // Add some reverb for acoustic space
       const reverb = new Tone.Reverb({
@@ -69,7 +98,9 @@ async function initializeAudio() {
         wet: 0.2
       }).toDestination();
       
-      piano.connect(reverb);
+      if (piano) {
+        piano.connect(reverb);
+      }
       
       audioInitialized = true;
       console.log('Audio context started successfully');
@@ -82,6 +113,29 @@ async function initializeAudio() {
     console.error('Error initializing audio:', error);
     logMessage('Error starting audio. Please try again.');
   }
+}
+
+function createFallbackPiano() {
+  console.log('Creating fallback piano...');
+  logMessage('⚠️ Using synthesized piano sound.');
+  
+  if (piano && piano.dispose) {
+    piano.dispose();
+  }
+  
+  piano = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { 
+      type: "triangle"
+    },
+    envelope: { 
+      attack: 0.02, 
+      decay: 0.1, 
+      sustain: 0.3, 
+      release: 1 
+    }
+  }).toDestination();
+  
+  console.log('Fallback piano created successfully');
 }
 
 function setupKeyboard() {
@@ -125,7 +179,22 @@ async function playNote(note) {
     if (!audioInitialized) {
       await initializeAudio();
     }
-    piano.triggerAttackRelease(note, "1n");
+    
+    if (!piano) {
+      console.error('Piano not initialized');
+      logMessage('Error: Piano not ready. Please try "Start Audio" again.');
+      return;
+    }
+    
+    // Use triggerAttackRelease for both Sampler and PolySynth
+    if (piano.triggerAttackRelease) {
+      piano.triggerAttackRelease(note, "1n");
+    } else {
+      console.error('Piano triggerAttackRelease method not available');
+      logMessage('Error playing sound. Please refresh and try again.');
+      return;
+    }
+    
     console.log(`Played note: ${note}`);
   } catch (error) {
     console.error('Error playing note:', error);
@@ -441,3 +510,23 @@ document.addEventListener('DOMContentLoaded', function() {
   logMessage('Click "Start Audio" first, then "New Note" to begin!');
   updateStatsDisplay();
 });
+
+// Debug function to test piano
+function testPiano() {
+  console.log('Testing piano...');
+  console.log('Piano object:', piano);
+  console.log('Piano loaded:', piano ? piano.loaded : 'Piano not initialized');
+  console.log('Audio context state:', Tone.context.state);
+  console.log('Audio initialized:', audioInitialized);
+  
+  if (piano && piano.triggerAttackRelease) {
+    try {
+      piano.triggerAttackRelease("C4", "1n");
+      console.log('Test note C4 triggered successfully');
+    } catch (error) {
+      console.error('Error triggering test note:', error);
+    }
+  } else {
+    console.error('Piano not ready for testing');
+  }
+}
