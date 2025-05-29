@@ -1,0 +1,29 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+    margin: 20px;
+  }
+  
+  #keyboard {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+  }
+  
+  .key {
+    width: 40px;
+    height: 150px;
+    background: white;
+    border: 1px solid black;
+    cursor: pointer;
+  }
+  
+  .key:hover {
+    background: #ddd;
+  }
+  
+  #log {
+    margin-top: 20px;
+  }
+  
