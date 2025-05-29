@@ -141,6 +141,15 @@ function createFallbackPiano() {
 function setupKeyboard() {
   const container = document.getElementById("keyboard");
   
+  // Mapping for black keys to show both sharp and flat notations
+  const blackKeyLabels = {
+    'C#4': 'C#/Db',
+    'D#4': 'D#/Eb', 
+    'F#4': 'F#/Gb',
+    'G#4': 'G#/Ab',
+    'A#4': 'A#/Bb'
+  };
+  
   // Create white keys first
   whiteKeys.forEach(note => {
     const btn = document.createElement("div");
@@ -156,7 +165,7 @@ function setupKeyboard() {
   blackKeys.forEach(note => {
     const btn = document.createElement("div");
     btn.className = "key black-key";
-    btn.innerText = note.slice(0, -2); // Note name without octave and #
+    btn.innerText = blackKeyLabels[note]; // Show both sharp and flat notation
     btn.onclick = () => handleAnswer(note);
     btn.id = `key-${note}`;
     btn.setAttribute('data-note', note);
