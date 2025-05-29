@@ -43,9 +43,10 @@ A comprehensive web-based ear training application with a realistic piano interf
 
 ## 🎵 Audio Features
 
-- **Piano synthesizer** with triangle wave oscillators
-- **Realistic envelope** (attack, decay, sustain, release)
-- **Reverb effect** for authentic piano sound
+- **Real piano samples** from the Salamander Grand Piano library
+- **Authentic piano sound** using Tone.Sampler with actual recordings
+- **Reverb effect** for realistic acoustic space
+- **Professional audio quality** comparable to commercial piano software
 - **Polyphonic capability** for future chord training
 
 ## 📊 Stats Tracking

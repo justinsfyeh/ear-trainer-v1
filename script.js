@@ -29,47 +29,52 @@ async function initializeAudio() {
   try {
     if (!audioInitialized) {
       console.log('Starting Tone.js audio context...');
+      logMessage('Loading piano samples...');
       await Tone.start();
       
-      // Create a piano-like synth
-      piano = new Tone.PolySynth(Tone.Synth, {
-        oscillator: {
-          type: "fatsawtooth",
-          count: 3,
-          spread: 30
+      // Create a realistic piano using samples
+      piano = new Tone.Sampler({
+        urls: {
+          "C4": "C4.mp3",
+          "D#4": "Ds4.mp3",
+          "F#4": "Fs4.mp3",
+          "A4": "A4.mp3",
+          "C5": "C5.mp3",
         },
-        envelope: {
-          attack: 0.01,
-          decay: 0.2,
-          sustain: 0.2,
-          release: 1.5
+        release: 1,
+        baseUrl: "https://tonejs.github.io/audio/salamander/",
+        onload: () => {
+          console.log('Piano samples loaded successfully');
+          logMessage('🎹 Real piano loaded! Click "New Note" to start.');
         },
-        filter: {
-          type: "lowpass",
-          frequency: 3000,
-          rolloff: -12
+        onerror: (error) => {
+          console.error('Error loading piano samples:', error);
+          logMessage('⚠️ Piano samples failed to load. Using fallback sound.');
+          // Create fallback synthesizer
+          piano = new Tone.PolySynth(Tone.Synth).toDestination();
         }
       }).toDestination();
       
-      // Add some reverb and EQ for a more realistic piano sound
+      // Set a timeout to detect loading issues
+      setTimeout(() => {
+        if (!piano.loaded) {
+          console.warn('Piano samples taking too long to load, using fallback');
+          logMessage('⚠️ Slow connection detected. Using synthesized piano.');
+        }
+      }, 10000); // 10 second timeout
+      
+      // Add some reverb for acoustic space
       const reverb = new Tone.Reverb({
-        decay: 2.5,
-        wet: 0.3
+        decay: 1.5,
+        wet: 0.2
       }).toDestination();
       
-      const eq = new Tone.EQ3({
-        low: -2,
-        mid: 1,
-        high: -1
-      }).connect(reverb);
-      
-      piano.connect(eq);
+      piano.connect(reverb);
       
       audioInitialized = true;
       console.log('Audio context started successfully');
       console.log('Tone context state:', Tone.context.state);
       document.getElementById('initBtn').style.display = 'none';
-      logMessage('Audio initialized! Click "New Note" to start.');
       updateStatsDisplay();
       loadBestStreak();
     }
