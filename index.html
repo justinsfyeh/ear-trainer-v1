@@ -17,6 +17,7 @@
     <button id="newNote">New Note</button>
     <button id="skipNote">Skip Note</button>
     <button id="showTable">Show Stats Table</button>
+    <button id="downloadStats" onclick="downloadStatsLog()">Download Stats</button>
   </div>
 
   <div id="stats">
@@ -25,6 +26,11 @@
     <div class="stat-item">Wrong/Skipped: <span id="wrongSkipped">0</span></div>
     <div class="stat-item">Accuracy: <span id="accuracy">0%</span></div>
     <div class="stat-item">Total Notes: <span id="totalNotes">0</span></div>
+    <div class="stat-item streak">Current Streak: <span id="currentStreak">0</span></div>
+    <div class="stat-item streak">Best Streak: <span id="bestStreak">0</span></div>
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+      Shortcuts: Space=Play/New, S=Skip, D=Download Stats
+    </div>
   </div>
 
   <div id="keyboard"></div>
