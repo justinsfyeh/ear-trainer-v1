@@ -89,9 +89,9 @@ No installation required! Just open `index.html` in any modern web browser.
 
 ## 🌐 Live Demo
 
-🎵 **[Try the Ear Trainer Live!](https://yourusername.github.io/ear-trainer-v1)** 🎵
+🎵 **[Try the Ear Trainer Live!](https://justinsfyeh.github.io/ear-trainer-v1)** 🎵
 
-*Replace `yourusername` with your actual GitHub username after setting up GitHub Pages*
+
 
 ## 📈 Perfect For
 
