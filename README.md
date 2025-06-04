@@ -1,5 +1,6 @@
 # Ear Trainer v1.0
 
+
 A comprehensive web-based ear training application with a realistic piano interface that helps you identify musical notes across a full chromatic octave.
 
 ## 🎹 Features

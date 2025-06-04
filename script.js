@@ -201,7 +201,9 @@ function setupKeyboard() {
 }
 
 function clearKeyStyles() {
-  notes.forEach(note => {
+  // Clear styles from the fixed keyboard (C4-C5)
+  const fixedNotes = ['C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4', 'C5'];
+  fixedNotes.forEach(note => {
     const key = document.getElementById(`key-${note}`);
     if (key) {
       key.classList.remove('wrong', 'correct');
@@ -277,10 +279,14 @@ async function handleAnswer(selectedNote) {
     return;
   }
   
+  // Extract note names without octave for comparison
+  const selectedNoteName = selectedNote.slice(0, -1);
+  const testNoteName = testNote.slice(0, -1);
+  
   const key = document.getElementById(`key-${selectedNote}`);
   
-  if (selectedNote === testNote) {
-    // Correct answer
+  if (selectedNoteName === testNoteName) {
+    // Correct answer (octave-agnostic)
     const keyType = whiteKeys.includes(selectedNote) ? 'white-key' : 'black-key';
     key.classList.add('correct', keyType);
     gameState = 'answered';
@@ -305,17 +311,18 @@ async function handleAnswer(selectedNote) {
     }
     sessionStats.totalNotes++;
     
-    logMessage(`✅ Correct! It was ${testNote} ${sessionStats.currentStreak > 0 ? '🔥 Streak: ' + sessionStats.currentStreak : ''}`);
+    // Show just the note name without octave in the message
+    logMessage(`✅ Correct! It was ${testNoteName} ${sessionStats.currentStreak > 0 ? '🔥 Streak: ' + sessionStats.currentStreak : ''}`);
     updateStatsDisplay();
     logStatsToFile();
     
     // Reset button text
     document.getElementById('newNote').textContent = 'New Note';
     
-    // Auto-play next note after 1.5 seconds
-    setTimeout(async () => {
-      await generateTestNote();
-    }, 1500);
+    // Start next note immediately
+    setTimeout(() => {
+      generateTestNote();
+    }, 100);
     
   } else {
     // Wrong answer
@@ -341,12 +348,24 @@ function skipCurrentNote() {
   sessionStats.wrongSkipped++;
   sessionStats.totalNotes++;
   
-  // Show correct answer
-  const correctKey = document.getElementById(`key-${testNote}`);
-  const keyType = whiteKeys.includes(testNote) ? 'white-key' : 'black-key';
-  correctKey.classList.add('correct', keyType);
+  // Show correct answer on the fixed keyboard
+  const testNoteName = testNote.slice(0, -1);
+  const keyboardNote = testNoteName + '4'; // Map to keyboard octave
   
-  logMessage(`⏭️ Skipped! The answer was ${testNote}`);
+  // Handle special case for C at higher octaves - show C5 on keyboard
+  let keyboardKey;
+  if (testNoteName === 'C' && parseInt(testNote.slice(-1)) > 4) {
+    keyboardKey = document.getElementById(`key-C5`);
+  } else {
+    keyboardKey = document.getElementById(`key-${keyboardNote}`);
+  }
+  
+  if (keyboardKey) {
+    const keyType = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].includes(testNoteName) ? 'white-key' : 'black-key';
+    keyboardKey.classList.add('correct', keyType);
+  }
+  
+  logMessage(`⏭️ Skipped! The answer was ${testNoteName}`);
   updateStatsDisplay();
   logStatsToFile();
   
@@ -1204,9 +1223,6 @@ function selectPreset(preset) {
     case 'black':
       notesToSelect = blackKeyNames;
       break;
-    case 'white-fs':
-      notesToSelect = [...whiteKeyNames, 'F#'];
-      break;
     case 'custom':
       // Don't auto-select anything for custom
       break;
@@ -1238,71 +1254,57 @@ function closeSettingsModal() {
 
 // Update keyboard to reflect current note selection
 function updateKeyboard() {
-  // First remove existing keyboard
+  // Always show the full chromatic keyboard (C4-C5) regardless of settings
   const container = document.getElementById("keyboard");
   container.innerHTML = '';
   
-  // Only show keys for notes that are currently in our selection
-  const currentNotes = [...notes];
+  // Fixed keyboard layout - always show all keys
+  const fixedWhiteKeys = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+  const fixedBlackKeys = ['C#4', 'D#4', 'F#4', 'G#4', 'A#4'];
   
-  // Create a mapping of note names to positions for the current octave range
-  const notePositions = {};
-  let whiteKeyIndex = 0;
-  
-  // Calculate positions for all possible notes in the range
-  for (let octave = settings.startOctave; octave <= settings.endOctave; octave++) {
-    whiteKeyNames.forEach((noteName, index) => {
-      const fullNote = noteName + octave;
-      if (octave === settings.endOctave && noteName !== 'C') return; // Only C from end octave
-      
-      if (notes.includes(fullNote)) {
-        notePositions[fullNote] = whiteKeyIndex * 70;
-        whiteKeyIndex++;
-      }
-    });
-  }
-  
-  // Create white keys
-  currentNotes.filter(note => whiteKeyNames.includes(note.slice(0, -1))).forEach(note => {
+  // Create all white keys
+  fixedWhiteKeys.forEach(note => {
     const btn = document.createElement("div");
     btn.className = "key white-key";
     btn.innerText = note.slice(0, -1); // Just the note name
     btn.onclick = () => handleAnswer(note);
     btn.id = `key-${note}`;
     btn.setAttribute('data-note', note);
-    btn.style.left = notePositions[note] + 'px';
+    
+    // Check if this note is selected in settings
+    const noteName = note.slice(0, -1);
+    if (!settings.selectedNotes.includes(noteName)) {
+      btn.style.opacity = '0.4';
+      btn.style.cursor = 'not-allowed';
+      btn.onclick = () => {
+        logMessage(`${noteName} is not selected in your current settings. Click Settings to change.`);
+      };
+    }
+    
     container.appendChild(btn);
   });
   
-  // Create black keys with proper positioning
-  const blackKeyOffsets = { 'C#': 47.5, 'D#': 117.5, 'F#': 257.5, 'G#': 327.5, 'A#': 397.5 };
-  let octaveOffset = 0;
-  
-  for (let octave = settings.startOctave; octave <= settings.endOctave; octave++) {
-    blackKeyNames.forEach(noteName => {
-      const fullNote = noteName + octave;
-      if (octave === settings.endOctave) return; // No black keys from end octave
-      
-      if (notes.includes(fullNote)) {
-        const btn = document.createElement("div");
-        btn.className = "key black-key";
-        btn.innerText = ({'C#': 'C#/Db', 'D#': 'D#/Eb', 'F#': 'F#/Gb', 'G#': 'G#/Ab', 'A#': 'A#/Bb'})[noteName.slice(0, -1)] || noteName;
-        btn.onclick = () => handleAnswer(fullNote);
-        btn.id = `key-${fullNote}`;
-        btn.setAttribute('data-note', fullNote);
-        btn.style.left = (blackKeyOffsets[noteName.slice(0, -1)] + octaveOffset) + 'px';
-        container.appendChild(btn);
-      }
-    });
+  // Create all black keys
+  fixedBlackKeys.forEach(note => {
+    const btn = document.createElement("div");
+    btn.className = "key black-key";
+    btn.innerText = ({'C#': 'C#/Db', 'D#': 'D#/Eb', 'F#': 'F#/Gb', 'G#': 'G#/Ab', 'A#': 'A#/Bb'})[note.slice(0, -1)] || note.slice(0, -1);
+    btn.onclick = () => handleAnswer(note);
+    btn.id = `key-${note}`;
+    btn.setAttribute('data-note', note);
     
-    // Calculate octave offset for next octave (8 white keys * 70px, but only if we have more octaves)
-    if (octave < settings.endOctave) {
-      const whiteKeysInOctave = whiteKeyNames.filter(name => {
-        return settings.selectedNotes.includes(name);
-      }).length;
-      octaveOffset += whiteKeysInOctave * 70;
+    // Check if this note is selected in settings
+    const noteName = note.slice(0, -1);
+    if (!settings.selectedNotes.includes(noteName)) {
+      btn.style.opacity = '0.4';
+      btn.style.cursor = 'not-allowed';
+      btn.onclick = () => {
+        logMessage(`${noteName} is not selected in your current settings. Click Settings to change.`);
+      };
     }
-  }
+    
+    container.appendChild(btn);
+  });
 }
 
 // Event listeners for settings

@@ -27,6 +27,11 @@ body {
     cursor: not-allowed;
   }
   
+  #settingsBtn {
+    min-width: 100px;
+    white-space: nowrap;
+  }
+  
   #keyboard {
     margin: 20px auto;
     position: relative;
