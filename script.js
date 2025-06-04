@@ -3,9 +3,67 @@ if (typeof Tone === 'undefined') {
   console.error('Tone.js is not loaded!');
 }
 
-const notes = ['C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4', 'C5'];
-const whiteKeys = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
-const blackKeys = ['C#4', 'D#4', 'F#4', 'G#4', 'A#4'];
+// Settings configuration
+let settings = {
+  selectedNotes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+  startOctave: 4,
+  endOctave: 5,
+  includeEndOctaveC: true
+};
+
+// Dynamic note arrays based on settings
+let notes = [];
+let whiteKeys = [];
+let blackKeys = [];
+
+// All possible note names (without octave)
+const allNoteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const whiteKeyNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const blackKeyNames = ['C#', 'D#', 'F#', 'G#', 'A#'];
+
+// Generate notes based on current settings
+function generateNoteArrays() {
+  notes = [];
+  whiteKeys = [];
+  blackKeys = [];
+  
+  for (let octave = settings.startOctave; octave <= settings.endOctave; octave++) {
+    for (let noteName of allNoteNames) {
+      // Special case: if we're at the end octave and includeEndOctaveC is true,
+      // only include C from the end octave
+      if (octave === settings.endOctave && settings.includeEndOctaveC) {
+        if (noteName !== 'C') continue;
+      }
+      
+      // Check if this note is selected in settings
+      if (settings.selectedNotes.includes(noteName)) {
+        const fullNote = noteName + octave;
+        notes.push(fullNote);
+        
+        if (whiteKeyNames.includes(noteName)) {
+          whiteKeys.push(fullNote);
+        } else {
+          blackKeys.push(fullNote);
+        }
+      }
+    }
+  }
+  
+  // If we didn't include C from end octave, don't add it
+  if (!settings.includeEndOctaveC && settings.endOctave > settings.startOctave) {
+    // Remove any C notes from the end octave
+    const endOctaveC = 'C' + settings.endOctave;
+    notes = notes.filter(note => note !== endOctaveC);
+    whiteKeys = whiteKeys.filter(note => note !== endOctaveC);
+  }
+  
+  console.log('Generated notes:', notes);
+  console.log('White keys:', whiteKeys);
+  console.log('Black keys:', blackKeys);
+}
+
+// Initialize with default settings
+generateNoteArrays();
 
 let testNote = null;
 let audioInitialized = false;
@@ -139,38 +197,7 @@ function createFallbackPiano() {
 }
 
 function setupKeyboard() {
-  const container = document.getElementById("keyboard");
-  
-  // Mapping for black keys to show both sharp and flat notations
-  const blackKeyLabels = {
-    'C#4': 'C#/Db',
-    'D#4': 'D#/Eb', 
-    'F#4': 'F#/Gb',
-    'G#4': 'G#/Ab',
-    'A#4': 'A#/Bb'
-  };
-  
-  // Create white keys first
-  whiteKeys.forEach(note => {
-    const btn = document.createElement("div");
-    btn.className = "key white-key";
-    btn.innerText = note.slice(0, -1); // Just the note name
-    btn.onclick = () => handleAnswer(note);
-    btn.id = `key-${note}`;
-    btn.setAttribute('data-note', note);
-    container.appendChild(btn);
-  });
-  
-  // Create black keys
-  blackKeys.forEach(note => {
-    const btn = document.createElement("div");
-    btn.className = "key black-key";
-    btn.innerText = blackKeyLabels[note]; // Show both sharp and flat notation
-    btn.onclick = () => handleAnswer(note);
-    btn.id = `key-${note}`;
-    btn.setAttribute('data-note', note);
-    container.appendChild(btn);
-  });
+  updateKeyboard();
 }
 
 function clearKeyStyles() {
@@ -685,6 +712,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Add event listeners for buttons
   document.getElementById('initBtn').addEventListener('click', initializeAudio);
+  document.getElementById('settingsBtn').addEventListener('click', showSettingsModal);
   document.getElementById('replayC').addEventListener('click', playReferenceNote);
   document.getElementById('replayTest').addEventListener('click', playTestNote);
   document.getElementById('newNote').addEventListener('click', generateTestNote);
@@ -693,10 +721,27 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Modal event listeners
   document.querySelector('.close').addEventListener('click', closeStatsModal);
+  document.querySelector('.settings-close').addEventListener('click', closeSettingsModal);
   window.addEventListener('click', function(event) {
-    const modal = document.getElementById('statsModal');
-    if (event.target === modal) {
+    const statsModal = document.getElementById('statsModal');
+    const settingsModal = document.getElementById('settingsModal');
+    if (event.target === statsModal) {
       closeStatsModal();
+    }
+    if (event.target === settingsModal) {
+      closeSettingsModal();
+    }
+  });
+  
+  // Settings event listeners
+  document.getElementById('startOctave').addEventListener('change', updateRangeDisplay);
+  document.getElementById('endOctave').addEventListener('change', updateRangeDisplay);
+  
+  // Update range display when note checkboxes change
+  allNoteNames.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox) {
+      checkbox.addEventListener('change', updateRangeDisplay);
     }
   });
   
@@ -720,6 +765,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
+  // Load saved settings
+  loadSettings();
+  
   logMessage('Click "Start Audio" first, then "New Note" to begin!');
   updateStatsDisplay();
   
@@ -730,6 +778,9 @@ document.addEventListener('DOMContentLoaded', function() {
   window.downloadStatsLog = downloadStatsLog;
   window.resetAllStats = resetAllStats;
   window.testPiano = testPiano;
+  window.saveSettings = saveSettings;
+  window.resetToDefaults = resetToDefaults;
+  window.selectPreset = selectPreset;
   
   console.log('All functions loaded and made globally accessible');
 });
@@ -1006,3 +1057,282 @@ function createRadarChart(ctx, noteData) {
     }
   });
 }
+
+// ================================
+// SETTINGS FUNCTIONALITY
+// ================================
+
+// Load settings from localStorage
+function loadSettings() {
+  const savedSettings = localStorage.getItem('earTrainerSettings');
+  if (savedSettings) {
+    settings = { ...settings, ...JSON.parse(savedSettings) };
+  }
+  generateNoteArrays();
+  updateKeyboard();
+}
+
+// Save settings to localStorage
+function saveSettings() {
+  // Get selected notes from checkboxes
+  const selectedNotes = [];
+  allNoteNames.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox && checkbox.checked) {
+      selectedNotes.push(noteName);
+    }
+  });
+  
+  // Get octave range
+  const startOctave = parseInt(document.getElementById('startOctave').value);
+  const endOctave = parseInt(document.getElementById('endOctave').value);
+  
+  // Validate settings
+  if (selectedNotes.length === 0) {
+    alert('Please select at least one note!');
+    return;
+  }
+  
+  if (startOctave > endOctave) {
+    alert('Start octave cannot be higher than end octave!');
+    return;
+  }
+  
+  // Update settings
+  settings.selectedNotes = selectedNotes;
+  settings.startOctave = startOctave;
+  settings.endOctave = endOctave;
+  settings.includeEndOctaveC = true; // Always include end octave C for now
+  
+  // Save to localStorage
+  localStorage.setItem('earTrainerSettings', JSON.stringify(settings));
+  
+  // Regenerate note arrays and update keyboard
+  generateNoteArrays();
+  updateKeyboard();
+  
+  // Close modal
+  closeSettingsModal();
+  
+  // Show confirmation
+  logMessage(`⚙️ Settings saved! Now practicing with ${notes.length} notes from ${settings.selectedNotes.join(', ')} (octaves ${settings.startOctave}-${settings.endOctave})`);
+}
+
+// Reset settings to defaults
+function resetToDefaults() {
+  settings = {
+    selectedNotes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    startOctave: 4,
+    endOctave: 5,
+    includeEndOctaveC: true
+  };
+  
+  // Update UI to reflect defaults
+  updateSettingsUI();
+  updateRangeDisplay();
+}
+
+// Update the settings UI with current values
+function updateSettingsUI() {
+  // Update note checkboxes
+  allNoteNames.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox) {
+      checkbox.checked = settings.selectedNotes.includes(noteName);
+    }
+  });
+  
+  // Update octave selects
+  document.getElementById('startOctave').value = settings.startOctave;
+  document.getElementById('endOctave').value = settings.endOctave;
+  
+  updateRangeDisplay();
+}
+
+// Update the range display information
+function updateRangeDisplay() {
+  const startOctave = parseInt(document.getElementById('startOctave').value);
+  const endOctave = parseInt(document.getElementById('endOctave').value);
+  
+  // Count selected notes
+  const selectedCount = allNoteNames.filter(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    return checkbox && checkbox.checked;
+  }).length;
+  
+  // Calculate total notes in range
+  let totalNotesInRange;
+  if (startOctave === endOctave) {
+    totalNotesInRange = selectedCount;
+  } else {
+    const octaveSpan = endOctave - startOctave;
+    totalNotesInRange = (selectedCount * octaveSpan) + (settings.selectedNotes.includes('C') ? 1 : 0);
+  }
+  
+  document.getElementById('rangeDisplay').textContent = 
+    `C${startOctave} to C${endOctave} (${totalNotesInRange} notes)`;
+  document.getElementById('noteCount').textContent = totalNotesInRange;
+}
+
+// Select preset note combinations
+function selectPreset(preset) {
+  // Remove active class from all preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to clicked button
+  event.target.classList.add('active');
+  
+  // Uncheck all notes first
+  allNoteNames.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox) {
+      checkbox.checked = false;
+    }
+  });
+  
+  // Apply preset
+  let notesToSelect = [];
+  switch(preset) {
+    case 'all':
+      notesToSelect = allNoteNames;
+      break;
+    case 'white':
+      notesToSelect = whiteKeyNames;
+      break;
+    case 'black':
+      notesToSelect = blackKeyNames;
+      break;
+    case 'white-fs':
+      notesToSelect = [...whiteKeyNames, 'F#'];
+      break;
+    case 'custom':
+      // Don't auto-select anything for custom
+      break;
+  }
+  
+  // Check the selected notes
+  notesToSelect.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox) {
+      checkbox.checked = true;
+    }
+  });
+  
+  updateRangeDisplay();
+}
+
+// Show settings modal
+function showSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  updateSettingsUI();
+  modal.style.display = 'block';
+}
+
+// Close settings modal
+function closeSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  modal.style.display = 'none';
+}
+
+// Update keyboard to reflect current note selection
+function updateKeyboard() {
+  // First remove existing keyboard
+  const container = document.getElementById("keyboard");
+  container.innerHTML = '';
+  
+  // Only show keys for notes that are currently in our selection
+  const currentNotes = [...notes];
+  
+  // Create a mapping of note names to positions for the current octave range
+  const notePositions = {};
+  let whiteKeyIndex = 0;
+  
+  // Calculate positions for all possible notes in the range
+  for (let octave = settings.startOctave; octave <= settings.endOctave; octave++) {
+    whiteKeyNames.forEach((noteName, index) => {
+      const fullNote = noteName + octave;
+      if (octave === settings.endOctave && noteName !== 'C') return; // Only C from end octave
+      
+      if (notes.includes(fullNote)) {
+        notePositions[fullNote] = whiteKeyIndex * 70;
+        whiteKeyIndex++;
+      }
+    });
+  }
+  
+  // Create white keys
+  currentNotes.filter(note => whiteKeyNames.includes(note.slice(0, -1))).forEach(note => {
+    const btn = document.createElement("div");
+    btn.className = "key white-key";
+    btn.innerText = note.slice(0, -1); // Just the note name
+    btn.onclick = () => handleAnswer(note);
+    btn.id = `key-${note}`;
+    btn.setAttribute('data-note', note);
+    btn.style.left = notePositions[note] + 'px';
+    container.appendChild(btn);
+  });
+  
+  // Create black keys with proper positioning
+  const blackKeyOffsets = { 'C#': 47.5, 'D#': 117.5, 'F#': 257.5, 'G#': 327.5, 'A#': 397.5 };
+  let octaveOffset = 0;
+  
+  for (let octave = settings.startOctave; octave <= settings.endOctave; octave++) {
+    blackKeyNames.forEach(noteName => {
+      const fullNote = noteName + octave;
+      if (octave === settings.endOctave) return; // No black keys from end octave
+      
+      if (notes.includes(fullNote)) {
+        const btn = document.createElement("div");
+        btn.className = "key black-key";
+        btn.innerText = ({'C#': 'C#/Db', 'D#': 'D#/Eb', 'F#': 'F#/Gb', 'G#': 'G#/Ab', 'A#': 'A#/Bb'})[noteName.slice(0, -1)] || noteName;
+        btn.onclick = () => handleAnswer(fullNote);
+        btn.id = `key-${fullNote}`;
+        btn.setAttribute('data-note', fullNote);
+        btn.style.left = (blackKeyOffsets[noteName.slice(0, -1)] + octaveOffset) + 'px';
+        container.appendChild(btn);
+      }
+    });
+    
+    // Calculate octave offset for next octave (8 white keys * 70px, but only if we have more octaves)
+    if (octave < settings.endOctave) {
+      const whiteKeysInOctave = whiteKeyNames.filter(name => {
+        return settings.selectedNotes.includes(name);
+      }).length;
+      octaveOffset += whiteKeysInOctave * 70;
+    }
+  }
+}
+
+// Event listeners for settings
+document.addEventListener('DOMContentLoaded', function() {
+  // Settings button
+  document.getElementById('settingsBtn').addEventListener('click', showSettingsModal);
+  
+  // Settings modal close buttons
+  document.querySelector('.settings-close').addEventListener('click', closeSettingsModal);
+  
+  // Close modal when clicking outside
+  window.addEventListener('click', function(event) {
+    const settingsModal = document.getElementById('settingsModal');
+    if (event.target === settingsModal) {
+      closeSettingsModal();
+    }
+  });
+  
+  // Update range display when octave selects change
+  document.getElementById('startOctave').addEventListener('change', updateRangeDisplay);
+  document.getElementById('endOctave').addEventListener('change', updateRangeDisplay);
+  
+  // Update range display when note checkboxes change
+  allNoteNames.forEach(noteName => {
+    const checkbox = document.getElementById(`note-${noteName.replace('#', '#')}`);
+    if (checkbox) {
+      checkbox.addEventListener('change', updateRangeDisplay);
+    }
+  });
+  
+  // Load saved settings on page load
+  loadSettings();
+});

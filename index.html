@@ -34,6 +34,7 @@
 
   <div id="controls">
     <button id="initBtn">Start Audio</button>
+    <button id="settingsBtn">⚙️ Settings</button>
     <button id="testPiano" onclick="testPiano()" style="background: #e6f3ff;">Test Piano</button>
     <button id="replayC">Replay C</button>
     <button id="replayTest">Replay Test</button>
@@ -120,6 +121,105 @@
           <span class="color-sample" style="background: #FF9800;"></span> 40-59% accuracy
           <span class="color-sample" style="background: #F44336;"></span> &lt;40% accuracy
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close settings-close">&times;</span>
+      <h2>⚙️ Ear Trainer Settings</h2>
+      
+      <!-- Note Selection Section -->
+      <div class="settings-section">
+        <h3>🎵 Select Notes to Include</h3>
+        <div class="settings-description">
+          Choose which notes you want to practice with. You can select individual notes or use quick presets.
+        </div>
+        
+        <div class="preset-controls">
+          <button onclick="selectPreset('all')" class="preset-btn">All Notes</button>
+          <button onclick="selectPreset('white')" class="preset-btn">White Keys Only</button>
+          <button onclick="selectPreset('black')" class="preset-btn">Black Keys Only</button>
+          <button onclick="selectPreset('white-fs')" class="preset-btn">White Keys + F#</button>
+          <button onclick="selectPreset('custom')" class="preset-btn">Custom Selection</button>
+        </div>
+        
+        <div class="note-selector">
+          <div class="note-grid">
+            <div class="note-column">
+              <label><input type="checkbox" id="note-C" value="C" checked> C</label>
+              <label><input type="checkbox" id="note-C#" value="C#" checked> C#/Db</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-D" value="D" checked> D</label>
+              <label><input type="checkbox" id="note-D#" value="D#" checked> D#/Eb</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-E" value="E" checked> E</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-F" value="F" checked> F</label>
+              <label><input type="checkbox" id="note-F#" value="F#" checked> F#/Gb</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-G" value="G" checked> G</label>
+              <label><input type="checkbox" id="note-G#" value="G#" checked> G#/Ab</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-A" value="A" checked> A</label>
+              <label><input type="checkbox" id="note-A#" value="A#" checked> A#/Bb</label>
+            </div>
+            <div class="note-column">
+              <label><input type="checkbox" id="note-B" value="B" checked> B</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Octave Range Section -->
+      <div class="settings-section">
+        <h3>🎹 Octave Range</h3>
+        <div class="settings-description">
+          Select the octave range for your practice. Default is C4 to C5 (one octave).
+        </div>
+        
+        <div class="octave-controls">
+          <div class="octave-range">
+            <label for="startOctave">Start Octave:</label>
+            <select id="startOctave">
+              <option value="2">2 (Low)</option>
+              <option value="3">3</option>
+              <option value="4" selected>4 (Middle C)</option>
+              <option value="5">5</option>
+              <option value="6">6 (High)</option>
+            </select>
+          </div>
+          
+          <div class="octave-range">
+            <label for="endOctave">End Octave:</label>
+            <select id="endOctave">
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5" selected>5</option>
+              <option value="6">6</option>
+              <option value="7">7 (Very High)</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="octave-info">
+          <p><strong>Current Range:</strong> <span id="rangeDisplay">C4 to C5 (13 notes)</span></p>
+          <p><strong>Selected Notes Count:</strong> <span id="noteCount">13</span></p>
+        </div>
+      </div>
+      
+      <!-- Save/Cancel Buttons -->
+      <div class="settings-buttons">
+        <button onclick="saveSettings()" class="save-btn">💾 Save Settings</button>
+        <button onclick="closeSettingsModal()" class="cancel-btn">❌ Cancel</button>
+        <button onclick="resetToDefaults()" class="reset-btn">🔄 Reset to Defaults</button>
       </div>
     </div>
   </div>
