@@ -46,16 +46,35 @@
   </div>
 
   <div id="stats">
-    <h3>Your Progress</h3>
-    <div class="stat-item">Correct First Try: <span id="correctFirst">0</span></div>
-    <div class="stat-item">Wrong/Skipped: <span id="wrongSkipped">0</span></div>
-    <div class="stat-item">Accuracy: <span id="accuracy">0%</span></div>
-    <div class="stat-item">Total Notes: <span id="totalNotes">0</span></div>
-    <div class="stat-item streak">Current Streak: <span id="currentStreak">0</span></div>
-    <div class="stat-item streak">Best Streak: <span id="bestStreak">0</span></div>
-    <div style="margin-top: 10px; font-size: 12px; color: #666;">
-      Shortcuts: Space=Play/New, S=Skip, D=Download Stats
-      <br>Stats persist across browser sessions - use Reset button to clear
+    <h3>📊 Your Progress</h3>
+    <div class="stats-grid">
+      <div class="stat-card primary">
+        <div class="stat-number" id="accuracy">0%</div>
+        <div class="stat-label">Accuracy</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="correctFirst">0</div>
+        <div class="stat-label">Correct First Try</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalNotes">0</div>
+        <div class="stat-label">Total Notes</div>
+      </div>
+      <div class="stat-card streak">
+        <div class="stat-number" id="currentStreak">0</div>
+        <div class="stat-label">Current Streak</div>
+      </div>
+      <div class="stat-card streak">
+        <div class="stat-number" id="bestStreak">0</div>
+        <div class="stat-label">Best Streak</div>
+      </div>
+      <div class="stat-card secondary">
+        <div class="stat-number" id="wrongSkipped">0</div>
+        <div class="stat-label">Wrong/Skipped</div>
+      </div>
+    </div>
+    <div class="stats-footer">
+      <strong>Shortcuts:</strong> Space=Play/New • S=Skip • D=Download Stats
     </div>
   </div>
 
@@ -105,6 +124,58 @@
         </div>
         <div class="chart-container">
           <canvas id="statsChart" width="400" height="200"></canvas>
+        </div>
+      </div>
+      
+      <!-- Advanced Analytics Section -->
+      <div class="advanced-stats-section">
+        <h3>📊 Advanced Analytics</h3>
+        
+        <!-- Time Period Selector -->
+        <div class="time-period-selector">
+          <button onclick="showStatsForPeriod('today')" class="period-btn active">Today</button>
+          <button onclick="showStatsForPeriod('week')" class="period-btn">This Week</button>
+          <button onclick="showStatsForPeriod('month')" class="period-btn">This Month</button>
+          <button onclick="showStatsForPeriod('all')" class="period-btn">All Time</button>
+        </div>
+        
+        <!-- Key Metrics Cards -->
+        <div class="metrics-cards">
+          <div class="metric-card">
+            <div class="metric-value" id="totalPracticeTime">0 min</div>
+            <div class="metric-label">Practice Time</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="averageAccuracy">0%</div>
+            <div class="metric-label">Avg Accuracy</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="averageResponseTime">0s</div>
+            <div class="metric-label">Avg Response</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="sessionsCount">0</div>
+            <div class="metric-label">Sessions</div>
+          </div>
+        </div>
+        
+        <!-- Progress Chart -->
+        <div class="progress-chart-container">
+          <h4>📈 Progress Over Time</h4>
+          <canvas id="progressChart" width="400" height="200"></canvas>
+        </div>
+        
+        <!-- Insights Section -->
+        <div class="insights-section">
+          <h4>🎯 Insights & Recommendations</h4>
+          <div id="insightsContent">
+            <div class="insight-item">Start practicing to see personalized insights!</div>
+          </div>
+        </div>
+        
+        <!-- Export Section -->
+        <div class="export-section">
+          <button onclick="exportAdvancedStats()" class="export-btn">📊 Export Detailed Report</button>
         </div>
       </div>
       

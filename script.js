@@ -80,6 +80,171 @@ let sessionStats = {
   bestStreak: 0
 };
 
+// Advanced Session Tracking
+class SessionTracker {
+  constructor() {
+    this.currentSession = null;
+    this.responseStartTime = null;
+    this.currentStreak = 0;
+  }
+  
+  startSession() {
+    this.currentSession = {
+      id: 'session_' + Date.now(),
+      startTime: new Date().toISOString(),
+      settings: {
+        selectedNotes: [...settings.selectedNotes],
+        startOctave: settings.startOctave,
+        endOctave: settings.endOctave,
+        includeEndOctaveC: settings.includeEndOctaveC
+      },
+      noteAttempts: [],
+      performance: {
+        totalNotes: 0,
+        correctFirst: 0,
+        responseTimes: [],
+        streaks: []
+      }
+    };
+    
+    console.log('Session started:', this.currentSession.id);
+    logMessage('📊 Session tracking started');
+  }
+  
+  recordNoteStart(note) {
+    this.responseStartTime = Date.now();
+  }
+  
+  recordNoteResult(note, correct, isFirstTry) {
+    if (!this.currentSession) return;
+    
+    const responseTime = this.responseStartTime ? Date.now() - this.responseStartTime : 0;
+    
+    this.currentSession.noteAttempts.push({
+      note: note,
+      correct: correct,
+      isFirstTry: isFirstTry,
+      responseTime: responseTime,
+      timestamp: new Date().toISOString()
+    });
+    
+    this.updateSessionPerformance(correct, isFirstTry, responseTime);
+  }
+  
+  updateSessionPerformance(correct, isFirstTry, responseTime) {
+    const perf = this.currentSession.performance;
+    perf.totalNotes++;
+    if (correct && isFirstTry) perf.correctFirst++;
+    if (responseTime > 0) perf.responseTimes.push(responseTime);
+    
+    // Track current streak
+    if (correct && isFirstTry) {
+      this.currentStreak = (this.currentStreak || 0) + 1;
+    } else {
+      if (this.currentStreak > 0) {
+        perf.streaks.push(this.currentStreak);
+      }
+      this.currentStreak = 0;
+    }
+  }
+  
+  endSession() {
+    if (!this.currentSession) return;
+    
+    this.currentSession.endTime = new Date().toISOString();
+    this.currentSession.duration = Math.floor(
+      (new Date(this.currentSession.endTime) - new Date(this.currentSession.startTime)) / 1000
+    );
+    
+    // Add final streak if active
+    if (this.currentStreak > 0) {
+      this.currentSession.performance.streaks.push(this.currentStreak);
+    }
+    
+    // Calculate final statistics
+    this.calculateSessionStats();
+    
+    // Save to storage
+    this.saveSession();
+    
+    console.log('Session ended:', this.currentSession.id, 'Duration:', this.currentSession.duration + 's');
+    logMessage('📊 Session saved with ' + this.currentSession.performance.totalNotes + ' notes');
+    this.currentSession = null;
+    this.currentStreak = 0;
+  }
+  
+  calculateSessionStats() {
+    const perf = this.currentSession.performance;
+    const times = perf.responseTimes;
+    
+    perf.accuracy = perf.totalNotes > 0 ? 
+      Math.round((perf.correctFirst / perf.totalNotes) * 100) : 0;
+    
+    perf.averageResponseTime = times.length > 0 ?
+      Math.round(times.reduce((a, b) => a + b, 0) / times.length / 100) / 10 : 0;
+    
+    perf.maxStreak = Math.max(...perf.streaks, this.currentStreak || 0);
+  }
+  
+  saveSession() {
+    const sessions = JSON.parse(localStorage.getItem('practiceSessions') || '[]');
+    sessions.push(this.currentSession);
+    
+    // Keep only last 100 sessions to avoid storage issues
+    if (sessions.length > 100) {
+      sessions.splice(0, sessions.length - 100);
+    }
+    
+    localStorage.setItem('practiceSessions', JSON.stringify(sessions));
+    this.updateAggregatedStats();
+  }
+  
+  updateAggregatedStats() {
+    // Update daily stats
+    const today = new Date().toISOString().split('T')[0];
+    const dailyStats = JSON.parse(localStorage.getItem('dailyStats') || '{}');
+    
+    if (!dailyStats[today]) {
+      dailyStats[today] = {
+        sessionsCount: 0,
+        totalDuration: 0,
+        totalNotes: 0,
+        totalCorrect: 0,
+        bestStreak: 0
+      };
+    }
+    
+    const dayStats = dailyStats[today];
+    const sessionPerf = this.currentSession.performance;
+    
+    dayStats.sessionsCount++;
+    dayStats.totalDuration += this.currentSession.duration;
+    dayStats.totalNotes += sessionPerf.totalNotes;
+    dayStats.totalCorrect += sessionPerf.correctFirst;
+    dayStats.bestStreak = Math.max(dayStats.bestStreak, sessionPerf.maxStreak);
+    dayStats.overallAccuracy = dayStats.totalNotes > 0 ? 
+      Math.round((dayStats.totalCorrect / dayStats.totalNotes) * 100) : 0;
+    
+    localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
+  }
+}
+
+// Initialize session tracker
+const sessionTracker = new SessionTracker();
+
+// Add session end detection (when user stops practicing)
+let inactivityTimer;
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    if (sessionTracker.currentSession) {
+      sessionTracker.endSession();
+      logMessage('📊 Session ended due to inactivity');
+    }
+  }, 300000); // 5 minutes of inactivity
+}
+
 // Piano synth for better sound
 let piano = null;
 
@@ -251,11 +416,22 @@ async function generateTestNote() {
     return;
   }
   
+  // Start session if not already started
+  if (!sessionTracker.currentSession) {
+    sessionTracker.startSession();
+  }
+  
+  // Reset inactivity timer
+  resetInactivityTimer();
+  
   clearKeyStyles();
   const randomIndex = Math.floor(Math.random() * notes.length);
   testNote = notes[randomIndex];
   gameState = 'guessing';
   isFirstGuess = true;
+  
+  // Record note start time for response measurement
+  sessionTracker.recordNoteStart(testNote);
   
   await playNote(testNote);
   logMessage("🎵 Guess the note! (Click a key or Skip)");
@@ -279,6 +455,9 @@ async function handleAnswer(selectedNote) {
     return;
   }
   
+  // Reset inactivity timer
+  resetInactivityTimer();
+  
   // Extract note names without octave for comparison
   const selectedNoteName = selectedNote.slice(0, -1);
   const testNoteName = testNote.slice(0, -1);
@@ -290,6 +469,9 @@ async function handleAnswer(selectedNote) {
     const keyType = whiteKeys.includes(selectedNote) ? 'white-key' : 'black-key';
     key.classList.add('correct', keyType);
     gameState = 'answered';
+    
+    // Record successful attempt
+    sessionTracker.recordNoteResult(testNote, true, isFirstGuess);
     
     // Update streak
     if (isFirstGuess) {
@@ -329,6 +511,12 @@ async function handleAnswer(selectedNote) {
     const keyType = whiteKeys.includes(selectedNote) ? 'white-key' : 'black-key';
     key.classList.add('wrong', keyType);
     wrongKeys.add(selectedNote);
+    
+    // Record failed attempt (only on first try)
+    if (isFirstGuess) {
+      sessionTracker.recordNoteResult(testNote, false, true);
+    }
+    
     isFirstGuess = false;
     
     logMessage(`❌ Try again! (or Skip to see the answer)`);
@@ -339,6 +527,12 @@ function skipCurrentNote() {
   if (gameState !== 'guessing' || !testNote) {
     return;
   }
+  
+  // Reset inactivity timer
+  resetInactivityTimer();
+  
+  // Record skipped note
+  sessionTracker.recordNoteResult(testNote, false, false);
   
   gameState = 'answered';
   sessionStats.currentStreak = 0; // Reset streak on skip
@@ -433,27 +627,52 @@ function showStatsTable() {
   // Clear existing table
   tableBody.innerHTML = '';
   
+  // Consolidate stats by note name (regardless of octave)
+  const consolidatedStats = {};
+  
+  // Initialize all note names that could be in the current selection
+  settings.selectedNotes.forEach(noteName => {
+    consolidatedStats[noteName] = {
+      timesHeard: 0,
+      correctFirst: 0,
+      missed: 0
+    };
+  });
+  
+  // Aggregate stats from all octaves for each note name
+  Object.keys(stats).forEach(fullNote => {
+    const noteName = fullNote.slice(0, -1); // Remove octave number
+    if (consolidatedStats[noteName]) {
+      const noteStats = stats[fullNote];
+      consolidatedStats[noteName].timesHeard += noteStats.timesHeard || 0;
+      consolidatedStats[noteName].correctFirst += noteStats.correctFirst || 0;
+      consolidatedStats[noteName].missed += noteStats.missed || 0;
+    }
+  });
+  
   // Prepare data for sorting and analysis
-  const noteData = notes.map(note => {
-    const noteStats = stats[note] || { timesHeard: 0, correctFirst: 0, missed: 0 };
+  const noteData = Object.keys(consolidatedStats).map(noteName => {
+    const noteStats = consolidatedStats[noteName];
     const accuracy = noteStats.timesHeard > 0 
       ? Math.round((noteStats.correctFirst / noteStats.timesHeard) * 100)
       : 0;
     
     return {
-      note: note,
+      note: noteName,
       timesHeard: noteStats.timesHeard,
       correctFirst: noteStats.correctFirst,
       missed: noteStats.missed,
       accuracy: accuracy
     };
-  });
+  }).filter(data => data.note); // Filter out any undefined notes
   
-  console.log('Processed note data:', noteData); // Debug log
+  console.log('Processed consolidated note data:', noteData); // Debug log
   
-  // Find best performing note
-  const bestNote = noteData.reduce((best, current) => 
-    current.accuracy > best.accuracy ? current : best, noteData[0]);
+  // Find best performing note (only among notes with data)
+  const notesWithData = noteData.filter(data => data.timesHeard > 0);
+  const bestNote = notesWithData.length > 0 ? 
+    notesWithData.reduce((best, current) => 
+      current.accuracy > best.accuracy ? current : best) : null;
   
   // Sort by accuracy (descending) by default
   noteData.sort((a, b) => b.accuracy - a.accuracy);
@@ -465,17 +684,19 @@ function showStatsTable() {
     
     // Note name with black key formatting
     const noteCell = row.insertCell(0);
-    if (blackKeys.includes(data.note)) {
+    const noteName = data.note;
+    
+    if (blackKeyNames.includes(noteName)) {
       const blackKeyLabels = {
-        'C#4': 'C#/Db',
-        'D#4': 'D#/Eb', 
-        'F#4': 'F#/Gb',
-        'G#4': 'G#/Ab',
-        'A#4': 'A#/Bb'
+        'C#': 'C#/Db',
+        'D#': 'D#/Eb', 
+        'F#': 'F#/Gb',
+        'G#': 'G#/Ab',
+        'A#': 'A#/Bb'
       };
-      noteCell.innerHTML = `<strong>${blackKeyLabels[data.note]}</strong>`;
+      noteCell.innerHTML = `<strong>${blackKeyLabels[noteName] || noteName}</strong>`;
     } else {
-      noteCell.textContent = data.note.slice(0, -1); // Remove octave for white keys
+      noteCell.textContent = noteName;
     }
     
     // Times heard with icon
@@ -492,7 +713,7 @@ function showStatsTable() {
     
     // Accuracy with colored bar and best note indicator
     const accuracyCell = row.insertCell(4);
-    const isBestNote = data.note === bestNote.note && data.accuracy > 0;
+    const isBestNote = bestNote && data.note === bestNote.note && data.accuracy > 0;
     
     // Create colored progress bar with improved DOM structure
     const progressContainer = document.createElement('div');
@@ -522,6 +743,9 @@ function showStatsTable() {
     console.log(`Row ${index} created successfully`); // Debug log
   });
   
+  // Initialize advanced analytics with default "today" view
+  analytics.showStatsForPeriod('today');
+  
   console.log('Table populated, showing modal'); // Debug log
   modal.style.display = 'block';
 }
@@ -546,21 +770,44 @@ function sortStatsTable(column) {
   const tableBody = document.getElementById('statsTableBody');
   const stats = JSON.parse(localStorage.getItem("detailedNoteStats") || "{}");
   
-  // Prepare data
-  const noteData = notes.map(note => {
-    const noteStats = stats[note] || { timesHeard: 0, correctFirst: 0, missed: 0 };
+  // Consolidate stats by note name (regardless of octave)
+  const consolidatedStats = {};
+  
+  // Initialize all note names that could be in the current selection
+  settings.selectedNotes.forEach(noteName => {
+    consolidatedStats[noteName] = {
+      timesHeard: 0,
+      correctFirst: 0,
+      missed: 0
+    };
+  });
+  
+  // Aggregate stats from all octaves for each note name
+  Object.keys(stats).forEach(fullNote => {
+    const noteName = fullNote.slice(0, -1); // Remove octave number
+    if (consolidatedStats[noteName]) {
+      const noteStats = stats[fullNote];
+      consolidatedStats[noteName].timesHeard += noteStats.timesHeard || 0;
+      consolidatedStats[noteName].correctFirst += noteStats.correctFirst || 0;
+      consolidatedStats[noteName].missed += noteStats.missed || 0;
+    }
+  });
+  
+  // Prepare data - only include currently selected notes
+  const noteData = Object.keys(consolidatedStats).map(noteName => {
+    const noteStats = consolidatedStats[noteName];
     const accuracy = noteStats.timesHeard > 0 
       ? Math.round((noteStats.correctFirst / noteStats.timesHeard) * 100)
       : 0;
     
     return {
-      note: note,
+      note: noteName,
       timesHeard: noteStats.timesHeard,
       correctFirst: noteStats.correctFirst,
       missed: noteStats.missed,
       accuracy: accuracy
     };
-  });
+  }).filter(data => data.note); // Filter out any undefined notes
   
   // Sort based on column
   switch(column) {
@@ -580,33 +827,39 @@ function sortStatsTable(column) {
       });
       break;
     case 'note':
-      noteData.sort((a, b) => notes.indexOf(a.note) - notes.indexOf(b.note));
+      // Sort by note order in the chromatic scale
+      const noteOrder = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      noteData.sort((a, b) => noteOrder.indexOf(a.note) - noteOrder.indexOf(b.note));
       break;
   }
   
   // Clear and repopulate table
   tableBody.innerHTML = '';
   
-  // Find best performing note
-  const bestNote = noteData.reduce((best, current) => 
-    current.accuracy > best.accuracy ? current : best, noteData[0]);
+  // Find best performing note (only among notes with data)
+  const notesWithData = noteData.filter(data => data.timesHeard > 0);
+  const bestNote = notesWithData.length > 0 ? 
+    notesWithData.reduce((best, current) => 
+      current.accuracy > best.accuracy ? current : best) : null;
   
   noteData.forEach(data => {
     const row = tableBody.insertRow();
     
     // Note name with black key formatting
     const noteCell = row.insertCell(0);
-    if (blackKeys.includes(data.note)) {
+    const noteName = data.note;
+    
+    if (blackKeyNames.includes(noteName)) {
       const blackKeyLabels = {
-        'C#4': 'C#/Db',
-        'D#4': 'D#/Eb', 
-        'F#4': 'F#/Gb',
-        'G#4': 'G#/Ab',
-        'A#4': 'A#/Bb'
+        'C#': 'C#/Db',
+        'D#': 'D#/Eb', 
+        'F#': 'F#/Gb',
+        'G#': 'G#/Ab',
+        'A#': 'A#/Bb'
       };
-      noteCell.innerHTML = `<strong>${blackKeyLabels[data.note]}</strong>`;
+      noteCell.innerHTML = `<strong>${blackKeyLabels[noteName] || noteName}</strong>`;
     } else {
-      noteCell.textContent = data.note.slice(0, -1);
+      noteCell.textContent = noteName;
     }
     
     // Times heard with icon
@@ -623,7 +876,7 @@ function sortStatsTable(column) {
     
     // Accuracy with colored bar and best note indicator
     const accuracyCell = row.insertCell(4);
-    const isBestNote = data.note === bestNote.note && data.accuracy > 0;
+    const isBestNote = bestNote && data.note === bestNote.note && data.accuracy > 0;
     
     // Create colored progress bar with improved DOM structure
     const progressContainer = document.createElement('div');
@@ -699,10 +952,17 @@ function downloadStatsLog() {
 // Function to reset all statistics
 function resetAllStats() {
   if (confirm('Are you sure you want to reset ALL statistics? This cannot be undone!')) {
+    // End current session if active
+    if (sessionTracker.currentSession) {
+      sessionTracker.endSession();
+    }
+    
     // Clear all localStorage data
     localStorage.removeItem('detailedNoteStats');
     localStorage.removeItem('statsLogs');
     localStorage.removeItem('bestStreak');
+    localStorage.removeItem('practiceSessions');
+    localStorage.removeItem('dailyStats');
     
     // Reset session stats
     sessionStats = {
@@ -717,7 +977,7 @@ function resetAllStats() {
     updateStatsDisplay();
     logMessage('All statistics have been reset!');
     
-    console.log('All stats reset');
+    console.log('All stats reset, including advanced statistics');
   }
 }
 
@@ -732,8 +992,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add event listeners for buttons
   document.getElementById('initBtn').addEventListener('click', initializeAudio);
   document.getElementById('settingsBtn').addEventListener('click', showSettingsModal);
-  document.getElementById('replayC').addEventListener('click', playReferenceNote);
-  document.getElementById('replayTest').addEventListener('click', playTestNote);
+  document.getElementById('replayC').addEventListener('click', () => {
+    playReferenceNote();
+    resetInactivityTimer();
+  });
+  document.getElementById('replayTest').addEventListener('click', () => {
+    playTestNote();
+    resetInactivityTimer();
+  });
   document.getElementById('newNote').addEventListener('click', generateTestNote);
   document.getElementById('skipNote').addEventListener('click', skipCurrentNote);
   document.getElementById('showTable').addEventListener('click', showStatsTable);
@@ -750,6 +1016,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (event.target === settingsModal) {
       closeSettingsModal();
     }
+  });
+  
+  // Window focus/blur management for sessions
+  window.addEventListener('blur', function() {
+    // When user leaves the page, end session after shorter delay
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      if (sessionTracker.currentSession) {
+        sessionTracker.endSession();
+        logMessage('📊 Session ended - window lost focus');
+      }
+    }, 60000); // 1 minute when window loses focus
+  });
+  
+  window.addEventListener('focus', function() {
+    // When user returns, reset timer
+    resetInactivityTimer();
   });
   
   // Settings event listeners
@@ -773,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if (gameState === 'guessing') {
         playTestNote();
       }
+      resetInactivityTimer();
     } else if (event.code === 'KeyS') {
       event.preventDefault();
       if (gameState === 'guessing') {
@@ -800,6 +1084,8 @@ document.addEventListener('DOMContentLoaded', function() {
   window.saveSettings = saveSettings;
   window.resetToDefaults = resetToDefaults;
   window.selectPreset = selectPreset;
+  window.showStatsForPeriod = showStatsForPeriod;
+  window.exportAdvancedStats = exportAdvancedStats;
   
   console.log('All functions loaded and made globally accessible');
 });
@@ -1338,3 +1624,327 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load saved settings on page load
   loadSettings();
 });
+
+// Advanced Analytics Class
+class AdvancedAnalytics {
+  constructor() {
+    this.currentPeriod = 'today';
+    this.progressChart = null;
+  }
+  
+  showStatsForPeriod(period) {
+    this.currentPeriod = period;
+    this.updateMetricsCards();
+    this.updateProgressChart();
+    this.generateInsights();
+    
+    // Update active button
+    document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+  
+  getDataForPeriod(period) {
+    const sessions = JSON.parse(localStorage.getItem('practiceSessions') || '[]');
+    const now = new Date();
+    let startDate;
+    
+    switch(period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'all':
+        startDate = new Date(0);
+        break;
+    }
+    
+    return sessions.filter(session => 
+      new Date(session.startTime) >= startDate
+    );
+  }
+  
+  updateMetricsCards() {
+    const sessions = this.getDataForPeriod(this.currentPeriod);
+    
+    const totalTime = sessions.reduce((sum, s) => sum + s.duration, 0);
+    const totalNotes = sessions.reduce((sum, s) => sum + s.performance.totalNotes, 0);
+    const totalCorrect = sessions.reduce((sum, s) => sum + s.performance.correctFirst, 0);
+    const totalResponseTime = sessions.reduce((sum, s) => 
+      sum + s.performance.responseTimes.reduce((a, b) => a + b, 0), 0);
+    const totalResponses = sessions.reduce((sum, s) => 
+      sum + s.performance.responseTimes.length, 0);
+    
+    document.getElementById('totalPracticeTime').textContent = 
+      Math.round(totalTime / 60) + ' min';
+    
+    document.getElementById('averageAccuracy').textContent = 
+      totalNotes > 0 ? Math.round((totalCorrect / totalNotes) * 100) + '%' : '0%';
+    
+    document.getElementById('averageResponseTime').textContent = 
+      totalResponses > 0 ? Math.round(totalResponseTime / totalResponses / 100) / 10 + 's' : '0s';
+    
+    document.getElementById('sessionsCount').textContent = sessions.length;
+  }
+  
+  updateProgressChart() {
+    const sessions = this.getDataForPeriod(this.currentPeriod);
+    const canvas = document.getElementById('progressChart');
+    
+    if (!canvas) {
+      console.error('Progress chart canvas not found');
+      return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy existing chart
+    if (this.progressChart) {
+      this.progressChart.destroy();
+    }
+    
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Chart.js library not loaded', canvas.width/2, canvas.height/2);
+      return;
+    }
+    
+    // Group sessions by date
+    const dailyData = this.groupSessionsByDate(sessions);
+    
+    if (Object.keys(dailyData).length === 0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('No practice data for this period', canvas.width/2, canvas.height/2);
+      return;
+    }
+    
+    this.progressChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Object.keys(dailyData).map(date => {
+          const d = new Date(date);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [
+          {
+            label: 'Accuracy %',
+            data: Object.values(dailyData).map(d => d.accuracy),
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            tension: 0.4,
+            fill: true
+          },
+          {
+            label: 'Practice Time (min)',
+            data: Object.values(dailyData).map(d => Math.round(d.duration / 60)),
+            borderColor: '#2196F3',
+            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+            tension: 0.4,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: false
+          },
+          legend: {
+            position: 'top'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: { display: true, text: 'Accuracy %' }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: { display: true, text: 'Practice Time (min)' },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+  }
+  
+  groupSessionsByDate(sessions) {
+    const grouped = {};
+    
+    sessions.forEach(session => {
+      const date = session.startTime.split('T')[0];
+      if (!grouped[date]) {
+        grouped[date] = {
+          sessions: [],
+          totalNotes: 0,
+          totalCorrect: 0,
+          duration: 0
+        };
+      }
+      
+      grouped[date].sessions.push(session);
+      grouped[date].totalNotes += session.performance.totalNotes;
+      grouped[date].totalCorrect += session.performance.correctFirst;
+      grouped[date].duration += session.duration;
+    });
+    
+    // Calculate daily averages
+    Object.keys(grouped).forEach(date => {
+      const data = grouped[date];
+      data.accuracy = data.totalNotes > 0 ? 
+        Math.round((data.totalCorrect / data.totalNotes) * 100) : 0;
+    });
+    
+    return grouped;
+  }
+  
+  generateInsights() {
+    const sessions = this.getDataForPeriod(this.currentPeriod);
+    const insights = [];
+    
+    if (sessions.length === 0) {
+      insights.push("No practice data for this period. Start practicing to see insights!");
+    } else {
+      // Accuracy trend
+      const accuracies = sessions.map(s => s.performance.accuracy);
+      const avgAccuracy = accuracies.reduce((a, b) => a + b, 0) / accuracies.length;
+      
+      if (avgAccuracy >= 80) {
+        insights.push("🎉 Excellent accuracy! You're mastering these notes.");
+      } else if (avgAccuracy >= 60) {
+        insights.push("👍 Good progress! Keep practicing to improve accuracy.");
+      } else {
+        insights.push("💪 Focus on accuracy - slow down and listen carefully.");
+      }
+      
+      // Practice consistency
+      const today = new Date().toISOString().split('T')[0];
+      const practiceDays = new Set(sessions.map(s => s.startTime.split('T')[0]));
+      
+      if (this.currentPeriod === 'week' && practiceDays.size >= 5) {
+        insights.push("🔥 Great consistency! You're practicing regularly.");
+      } else if (this.currentPeriod === 'week' && practiceDays.size < 3) {
+        insights.push("⏰ Try to practice more consistently for better results.");
+      }
+      
+      // Response time analysis
+      const allResponseTimes = sessions.flatMap(s => s.performance.responseTimes);
+      if (allResponseTimes.length > 0) {
+        const avgResponseTime = allResponseTimes.reduce((a, b) => a + b, 0) / allResponseTimes.length;
+        
+        if (avgResponseTime < 2000) {
+          insights.push("⚡ Fast recognition! Your ear training is improving.");
+        } else if (avgResponseTime > 5000) {
+          insights.push("🎯 Take your time, but try to recognize notes more quickly.");
+        }
+      }
+      
+      // Note-specific insights
+      const notePerformance = this.analyzeNotePerformance(sessions);
+      const weakNotes = Object.entries(notePerformance)
+        .filter(([note, data]) => data.accuracy < 60 && data.total >= 3)
+        .map(([note, data]) => note.slice(0, -1))
+        .slice(0, 3); // Limit to 3 notes
+        
+      if (weakNotes.length > 0) {
+        insights.push(`📝 Focus on these notes: ${weakNotes.join(', ')}`);
+      }
+      
+      // Session duration insights
+      const avgSessionTime = sessions.reduce((sum, s) => sum + s.duration, 0) / sessions.length;
+      if (avgSessionTime < 60) {
+        insights.push("⏱️ Consider longer practice sessions for better retention.");
+      } else if (avgSessionTime > 600) {
+        insights.push("🧘 Great dedication! Consider short breaks during long sessions.");
+      }
+    }
+    
+    document.getElementById('insightsContent').innerHTML = 
+      insights.map(insight => `<div class="insight-item">${insight}</div>`).join('');
+  }
+  
+  analyzeNotePerformance(sessions) {
+    const noteStats = {};
+    
+    sessions.forEach(session => {
+      session.noteAttempts.forEach(attempt => {
+        if (!noteStats[attempt.note]) {
+          noteStats[attempt.note] = { total: 0, correct: 0 };
+        }
+        noteStats[attempt.note].total++;
+        if (attempt.correct && attempt.isFirstTry) {
+          noteStats[attempt.note].correct++;
+        }
+      });
+    });
+    
+    Object.keys(noteStats).forEach(note => {
+      const stats = noteStats[note];
+      stats.accuracy = stats.total > 0 ? 
+        Math.round((stats.correct / stats.total) * 100) : 0;
+    });
+    
+    return noteStats;
+  }
+}
+
+// Initialize analytics
+const analytics = new AdvancedAnalytics();
+
+// Global function for period selection
+function showStatsForPeriod(period) {
+  analytics.showStatsForPeriod(period);
+}
+
+// Export functionality
+function exportAdvancedStats() {
+  const sessions = JSON.parse(localStorage.getItem('practiceSessions') || '[]');
+  const dailyStats = JSON.parse(localStorage.getItem('dailyStats') || '{}');
+  
+  // Calculate overall accuracy
+  const totalNotes = sessions.reduce((sum, s) => sum + s.performance.totalNotes, 0);
+  const totalCorrect = sessions.reduce((sum, s) => sum + s.performance.correctFirst, 0);
+  const overallAccuracy = totalNotes > 0 ? Math.round((totalCorrect / totalNotes) * 100) : 0;
+  
+  const exportData = {
+    exportDate: new Date().toISOString(),
+    summary: {
+      totalSessions: sessions.length,
+      totalPracticeTime: sessions.reduce((sum, s) => sum + s.duration, 0),
+      overallAccuracy: overallAccuracy,
+      totalNotesPlayed: totalNotes
+    },
+    sessions: sessions,
+    dailyAggregates: dailyStats,
+    notePerformance: analytics.analyzeNotePerformance(sessions),
+    currentSettings: settings
+  };
+  
+  // Create downloadable file
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+    type: 'application/json' 
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ear-trainer-advanced-stats-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  logMessage('📊 Advanced statistics exported successfully!');
+}

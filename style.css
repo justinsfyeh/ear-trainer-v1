@@ -149,25 +149,135 @@ body {
   }
   
   #stats {
-    margin: 20px 0;
-    padding: 15px;
-    background: #f5f5f5;
-    border-radius: 8px;
-    display: inline-block;
+    margin: 20px auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 15px;
+    max-width: 900px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
   
   #stats h3 {
-    margin-top: 0;
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 24px;
+    text-align: center;
   }
   
-  .stat-item {
-    margin: 5px 0;
-    font-size: 16px;
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
   }
   
-  .streak {
-    color: #ff6600;
+  .stat-card {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+  
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  }
+  
+  .stat-card.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+  }
+  
+  .stat-card.secondary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border-color: #f093fb;
+  }
+  
+  .stat-card.streak {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border-color: #4facfe;
+  }
+  
+  .stat-number {
+    font-size: 28px;
     font-weight: bold;
+    margin-bottom: 5px;
+    line-height: 1;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+    opacity: 0.9;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .stat-card:not(.primary):not(.secondary):not(.streak) .stat-number {
+    color: #333;
+  }
+  
+  .stat-card:not(.primary):not(.secondary):not(.streak) .stat-label {
+    color: #666;
+  }
+  
+  .stats-footer {
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    padding: 10px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+    margin-top: 10px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    
+    .stat-card {
+      padding: 12px;
+    }
+    
+    .stat-number {
+      font-size: 24px;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+    }
+    
+    #stats {
+      margin: 15px;
+      padding: 15px;
+    }
+    
+    #stats h3 {
+      font-size: 20px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+      padding: 15px;
+    }
+    
+    .stat-number {
+      font-size: 32px;
+    }
   }
   
   #log {
@@ -622,6 +732,168 @@ body {
     
     .save-btn, .cancel-btn, .reset-btn {
       width: 200px;
+    }
+  }
+  
+  /* Advanced Stats Styling */
+  .advanced-stats-section {
+    margin-top: 30px;
+    padding: 20px;
+    border-top: 2px solid #e0e0e0;
+    background: #fafafa;
+    border-radius: 8px;
+  }
+
+  .time-period-selector {
+    display: flex;
+    gap: 5px;
+    margin: 15px 0;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .period-btn {
+    padding: 8px 16px;
+    border: 2px solid #ddd;
+    background: white;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .period-btn:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+  }
+
+  .period-btn.active {
+    background: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+    box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+  }
+
+  .metrics-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+  }
+
+  .metric-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  }
+
+  .metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    opacity: 0.9;
+    font-weight: 500;
+  }
+
+  .progress-chart-container {
+    margin: 30px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .progress-chart-container h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    text-align: center;
+  }
+
+  .insights-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 8px;
+    border-left: 4px solid #4CAF50;
+  }
+
+  .insights-section h4 {
+    margin: 0 0 15px 0;
+    color: #2e7d32;
+  }
+
+  .insight-item {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 5px;
+    border-left: 3px solid #4CAF50;
+    font-size: 14px;
+    color: #333;
+  }
+
+  .export-section {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+  }
+
+  .export-btn {
+    background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .export-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .metrics-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .time-period-selector {
+      flex-wrap: wrap;
+    }
+    
+    .period-btn {
+      font-size: 11px;
+      padding: 6px 12px;
+    }
+    
+    .metric-card {
+      padding: 15px;
+    }
+    
+    .metric-value {
+      font-size: 20px;
+    }
+    
+    .advanced-stats-section {
+      padding: 15px;
     }
   }
   
